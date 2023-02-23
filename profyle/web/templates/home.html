@@ -1,0 +1,22 @@
+<html>
+
+<head>
+    <title>Profiling traces</title>
+    <link rel="stylesheet" href="/static/trace.css">
+</head>
+
+<body>
+    <h1>Profiling traces</h1>
+ 
+    <div id="graph"><canvas id="tracing"></canvas></div>
+    <script src="/static/libs/chart.js"></script>
+    <script src="/static/libs/moment.js"></script>
+    <script src="/static/libs/moment-adapter.js"></script>
+    <script src="/static/tracing.js"></script>
+    <script>
+        buildTraceChart({{ traces| safe }})
+    </script>
+
+
+
+</html>

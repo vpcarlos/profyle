@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "profyle"
+version = "0.0.1"
+description = "Analyze and profiling code"
+authors = ["Carlos Valdivia <vpcarlos97@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.scripts]
+profyle = "profyle.main:app"
+
+[tool.poetry.dependencies]
+python = ">=3.7,<4.0"
+fastapi = "^0.92.0"
+jinja2 = "^3.1.2"
+uvicorn = {extras = ["standard"], version = "^0.20.0"}
+snakeviz = "^2.1.1"
+typer = {extras = ["all"], version = "^0.7.0"}
+
+
+[tool.poetry.group.dev.dependencies]
+autopep8 = "^2.0.1"
+pytest = "^7.2.1"
+httpx = "^0.23.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
