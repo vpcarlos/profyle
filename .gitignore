@@ -130,3 +130,6 @@ dmypy.json
 
 # Profyle
 profile.db
+
+# poetry
+poetry.lock
