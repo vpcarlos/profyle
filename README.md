@@ -59,12 +59,12 @@ INFO:     Application startup complete.
 #### Search
 * Search all requests tracing and click on it:
 
-![Alt text](docs/img/traces.png "Traces")
+![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/traces.png?raw=true "Traces")
 
 #### Analyses
 * Analyses a request profile:
 
-![Alt text](docs/img/trace.png "Trace")
+![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/trace.png?raw=true "Trace")
 
 
 ### Flask
