@@ -8,8 +8,6 @@
     <img src="https://img.shields.io/pypi/pyversions/profyle.svg?color=%2334D058" alt="Supported Python versions">
 </a>
 
-https://img.shields.io/badge/pypi--package-v0.0.2-brightgreen
-
 ## Installation
 
 <div class="termy">
