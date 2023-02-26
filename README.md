@@ -69,3 +69,33 @@ INFO:     Application startup complete.
 
 ### Flask
 ... coming soon
+
+
+## Commands
+### start
+* Start the web server and view profile traces
+<div class="termy">
+
+```console
+$ profyle start
+
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [28720]
+INFO:     Started server process [28722]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+```
+
+</div>
+
+### clean
+* Delete all profile traces
+<div class="termy">
+
+```console
+$ profyle clean
+
+10 traces removed 
+```
+
+</div>

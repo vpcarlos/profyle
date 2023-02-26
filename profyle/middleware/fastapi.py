@@ -37,9 +37,8 @@ class ProfileMiddleware:
         trace = Trace(
             file=str(ps.stats),  # type: ignore
             duration=ps.total_tt,  # type: ignore
-            method=scope['method'],
-            url=scope['path'],
-            label=''
+            label=scope['method'],
+            name=scope['path'],
         )
         db = get_connection()
         store_trace(trace, db)

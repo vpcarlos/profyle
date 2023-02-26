@@ -13,13 +13,22 @@ def create_trace_table(db: Connection):
         time TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, 
         file TEXT NOT NULL,
         duration REAL NOT NULL,
-        url VARCHAR(64) NOT NULL,
-        method VARCHAR(64) NOT NULL,
-        label VARCHAR(64)
+        name VARCHAR(64) NOT NULL,
+        label VARCHAR(64) NOT NULL
     );
     """
     )
 
+def remove_all_traces(db:Connection):
+    cursor = db.cursor()
+    cursor.execute(
+        """
+        DELETE FROM trace
+        """
+    )
+    db.commit()
+    cursor.close()
+    return cursor.rowcount
 
 def store_trace(trace: Trace, db: Connection) -> None:
     connection = False
@@ -29,14 +38,13 @@ def store_trace(trace: Trace, db: Connection) -> None:
 
         insert_query = """ 
             INSERT INTO trace
-            ( file, duration, url, method, label) VALUES (?, ?, ?, ?, ?)
+            ( file, duration, name, label) VALUES (?, ?, ?, ?)
         """
 
         data_tuple = (
             trace.file,
             trace.duration,
-            trace.url,
-            trace.method,
+            trace.name,
             trace.label
         )
         cursor.execute(insert_query, data_tuple)

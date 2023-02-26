@@ -13,6 +13,9 @@ router = APIRouter()
 def run_middleware():
     return {'message': 'OK'}
 
+@router.post('/test1')
+def run_middleware_1():
+    return {'message': 'OK'}
 
 app.include_router(router)
 
@@ -21,3 +24,4 @@ client = TestClient(app)
 
 def test_fastapi_middleware():
     client.post('test')
+    client.post('test1')

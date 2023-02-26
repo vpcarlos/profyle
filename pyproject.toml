@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "profyle"
-version = "0.0.3"
+version = "0.0.4"
 description = "Profyle, a development tool for analysing and managing profile statistics"
 authors = ["Carlos Valdivia <vpcarlos97@gmail.com>"]
 maintainers = [
@@ -9,6 +9,9 @@ maintainers = [
 repository = "https://github.com/vpcarlos/profyle"
 keywords = ["cprofile","devtool", "profyle"]
 classifiers = [
+    "Framework :: FastAPI",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
     "Operating System :: OS Independent",

@@ -18,3 +18,34 @@ h1 {
 * {
     font-family: 'Poppins', sans-serif !important;
 }
+
+#actions>button {
+    margin-left: 20px;
+
+    cursor: pointer;
+    outline: 0;
+    color: #fff;
+    background-color: #59adf2;
+    border-color: #59adf2;
+    display: inline-block;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: center;
+    border: 1px solid transparent;
+    padding: 6px 12px;
+    font-size: 16px;
+    border-radius: .25rem;
+    transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+
+#actions>button:hover {
+    color: #fff;
+    background-color: #138bee;
+    border-color: #138bee;
+}
+
+#actions {
+    margin-top: 30px;
+    display: flex;
+    justify-content: center;
+}
