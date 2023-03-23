@@ -1,11 +1,11 @@
-import cProfile
-import pstats
-
+import tempfile
+from time import time
 from starlette.types import ASGIApp, Scope, Receive, Send
 
 from profyle.database.sql_lite import store_trace
 from profyle.models.trace import Trace
 from profyle.deps.get_connection import get_connection
+from viztracer import VizTracer
 
 
 class ProfileMiddleware:
@@ -19,7 +19,7 @@ class ProfileMiddleware:
         self.app = app
         self.enable = enable
         if enable:
-            self.profiler = cProfile.Profile()
+            self.tracer = VizTracer()
             self.sort_by = sort_by
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -27,17 +27,17 @@ class ProfileMiddleware:
         if scope['type'] != 'http' or not self.enable:
             await self.app(scope, receive, send)
             return
-
-        self.profiler.enable()
-        await self.app(scope, receive, send)
-        self.profiler.disable()
-
-        ps = pstats.Stats(self.profiler).sort_stats(self.sort_by)
+        with tempfile.NamedTemporaryFile(suffix='.json') as tf:
+            start = time()
+            self.tracer.start()
+            await self.app(scope, receive, send)
+            self.tracer.stop()
+            end = time()
+            self.tracer.save(tf.name)
 
         trace = Trace(
-            file=str(ps.stats),  # type: ignore
-            duration=ps.total_tt,  # type: ignore
-            label=scope['method'],
+            data=self.tracer.data,
+            duration=end-start,
             name=scope['path'],
         )
         db = get_connection()

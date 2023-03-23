@@ -1,6 +1,7 @@
 import os
 
 from pydantic import BaseSettings
+import viztracer
 
 
 class Settings(BaseSettings):
@@ -17,6 +18,13 @@ class Settings(BaseSettings):
             self.project_dir,
             *args
         )
+
+    def get_viztracer_static_files(self):
+        return os.path.normpath(os.path.join(
+            os.path.abspath(viztracer.__file__),
+            '..',
+            'web_dist'
+        ))
 
 
 settings = Settings()

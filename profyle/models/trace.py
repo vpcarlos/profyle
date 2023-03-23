@@ -1,10 +1,10 @@
+from typing import Dict, Any
 from pydantic import BaseModel
 
 
 class Trace(BaseModel):
-    file: str
+    data: Dict[str, Any]
     duration: float
     name: str
-    label: str
-    time: str = ''
+    timestamp: str = ''
     id: str = ''

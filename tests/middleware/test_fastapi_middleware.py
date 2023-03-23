@@ -1,6 +1,6 @@
+from time import sleep
 from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
-
 from profyle.middleware.fastapi import ProfileMiddleware
 
 app = FastAPI()
@@ -13,9 +13,12 @@ router = APIRouter()
 def run_middleware():
     return {'message': 'OK'}
 
+
 @router.post('/test1')
 def run_middleware_1():
+    sleep(.5)
     return {'message': 'OK'}
+
 
 app.include_router(router)
 
