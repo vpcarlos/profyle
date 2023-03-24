@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "profyle"
-version = "0.0.6"
+version = "0.0.7"
 description = "Profyle, a development tool for analysing and managing profile statistics"
 authors = ["Carlos Valdivia <vpcarlos97@gmail.com>"]
 maintainers = [
