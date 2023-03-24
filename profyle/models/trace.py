@@ -1,9 +1,9 @@
 from typing import Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Json
 
 
 class Trace(BaseModel):
-    data: Dict[str, Any]
+    data: Json[Dict[str, Any]]
     duration: float
     name: str
     timestamp: str = ''

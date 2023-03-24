@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profyle</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+</head>
+
+
+
+<body>
+    <table id="tg-Q7VB2" class="tg">
+        <thead>
+            <tr>
+                <th class="tg-0lax">Name</th>
+                <th class="tg-0lax">Duration</th>
+                <th class="tg-0lax">Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for trace in traces %}
+            <tr>
+                <td class="tg-0lax"><a href="/traces/{{trace.id}}"> {{trace.name}} </option>
+                </td>
+                <td class="tg-0lax"> {{trace.duration}}</td>
+                <td class="tg-0lax"> {{trace.timestamp}}</td>
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+    </table>
+
+    <script src="{{ url_for('static', path='/script.js') }}"></script>
+</body>
+
+
+</html>

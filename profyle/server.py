@@ -1,12 +1,13 @@
 from sqlite3 import Connection
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
 import uvicorn
 
-from profyle.database.sql_lite import create_select_trace, create_trace_table, get_select_trace, get_trace_by_id, store_select_trace
+from profyle.database.sql_lite import create_select_trace, create_trace_table, get_all_traces, get_select_trace, get_trace_by_id, store_select_trace
 from profyle.deps.get_connection import get_connection
 from profyle.settings import settings
 
@@ -34,12 +35,18 @@ async def startup_event():
     create_trace_table(db)
     create_select_trace(db)
 
-
+app.mount(
+    '/static',
+    StaticFiles(directory=settings.get_path('web', 'static')),
+    name='static'
+)
 app.mount(
     '/show',
     StaticFiles(directory=settings.get_viztracer_static_files(), html=True),
-    name='static'
+    name='perfetto'
 )
+
+templates = Jinja2Templates(directory=settings.get_path('web', 'templates'))
 
 
 @app.get('/vizviewer_info')
@@ -71,6 +78,22 @@ async def localtrace(
     if not trace:
         return {}
     return trace.data
+
+
+@app.get('/traces')
+def traces(
+    request: Request,
+    db: Connection = Depends(get_connection),
+
+):
+    traces = get_all_traces(db)
+    return templates.TemplateResponse(
+        name='traces.html',
+        context={
+            'request': request,
+            'traces': [trace.dict() for trace in traces]
+        }
+    )
 
 
 @app.get('/traces/{id}')

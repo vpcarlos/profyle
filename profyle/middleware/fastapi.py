@@ -1,5 +1,4 @@
 import tempfile
-from time import time
 from starlette.types import ASGIApp, Scope, Receive, Send
 
 from profyle.database.sql_lite import store_trace
@@ -28,12 +27,20 @@ class ProfileMiddleware:
             await self.app(scope, receive, send)
             return
         with tempfile.NamedTemporaryFile(suffix='.json') as tf:
-            start = time()
             self.tracer.start()
             await self.app(scope, receive, send)
             self.tracer.stop()
-            end = time()
             self.tracer.save(tf.name)
+
+        start = min(
+            trace.get('ts')
+            for trace in self.tracer.data.get('traceEvents', [])
+            if trace.get('ts')
+        )
+        end = max(
+            trace.get('ts', 0)
+            for trace in self.tracer.data.get('traceEvents', [])
+        )
 
         trace = Trace(
             data=self.tracer.data,

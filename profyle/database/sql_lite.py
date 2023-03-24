@@ -1,5 +1,5 @@
 from sqlite3 import Connection, Error, Row
-from typing import List
+from typing import List, Optional
 import json
 
 from profyle.models.trace import Trace
@@ -92,28 +92,28 @@ def store_trace(trace: Trace, db: Connection) -> None:
 def get_all_traces(db: Connection) -> List[Trace]:
     db.row_factory = Row
     cursor = db.cursor()
-    cursor.execute("SELECT * FROM traces")
+    cursor.execute("SELECT * FROM traces ORDER BY timestamp DESC")
 
     traces = cursor.fetchall()
+
     return [
         Trace(**dict(trace))
         for trace in traces
     ]
 
 
-def get_trace_by_id(id: int, db: Connection) -> Trace:
+def get_trace_by_id(id: int, db: Connection) -> Optional[Trace]:
     db.row_factory = Row
     cursor = db.cursor()
     cursor.execute("SELECT * FROM traces where id = ?", (id,))
     trace = cursor.fetchone()
-    trace = dict(trace)
-    trace.update(data=json.loads(trace['data']))
-    return Trace(**trace)
+    if trace:
+        return Trace(**dict(trace))
 
 
-def get_select_trace(db: Connection) -> int:
+def get_select_trace(db: Connection) -> Optional[int]:
     db.row_factory = Row
     cursor = db.cursor()
     cursor.execute("SELECT trace_id FROM select_trace where id = ?", (1,))
     trace = cursor.fetchone()
-    return trace['trace_id'] if trace else 0
+    return trace['trace_id'] if trace else None

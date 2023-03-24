@@ -16,7 +16,7 @@ def run_middleware():
 
 @router.post('/test1')
 def run_middleware_1():
-    sleep(.5)
+    sleep(5)
     return {'message': 'OK'}
 
 

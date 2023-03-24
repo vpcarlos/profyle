@@ -1,0 +1,70 @@
+.tg {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.tg td {
+    border-color: black;
+    border-style: solid;
+    border-width: 1px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    overflow: hidden;
+    padding: 10px 5px;
+    word-break: normal;
+}
+
+.tg th {
+    border-color: black;
+    border-style: solid;
+    border-width: 1px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    font-weight: normal;
+    overflow: hidden;
+    padding: 10px 5px;
+    word-break: normal;
+}
+
+.tg .tg-0lax {
+    text-align: left;
+    vertical-align: top
+}
+
+.tg-sort-header::-moz-selection {
+    background: 0 0
+}
+
+.tg-sort-header::selection {
+    background: 0 0
+}
+
+.tg-sort-header {
+    cursor: pointer
+}
+
+.tg-sort-header:after {
+    content: '';
+    float: right;
+    margin-top: 7px;
+    border-width: 0 5px 5px;
+    border-style: solid;
+    border-color: #404040 transparent;
+    visibility: hidden
+}
+
+.tg-sort-header:hover:after {
+    visibility: visible
+}
+
+.tg-sort-asc:after,
+.tg-sort-asc:hover:after,
+.tg-sort-desc:after {
+    visibility: visible;
+    opacity: .4
+}
+
+.tg-sort-desc:after {
+    border-bottom: none;
+    border-width: 5px 5px 0
+}
