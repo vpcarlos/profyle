@@ -92,7 +92,7 @@ def store_trace(trace: Trace, db: Connection) -> None:
 def get_all_traces(db: Connection) -> List[Trace]:
     db.row_factory = Row
     cursor = db.cursor()
-    cursor.execute("SELECT * FROM traces ORDER BY timestamp DESC")
+    cursor.execute("SELECT id, timestamp, duration, name FROM traces ORDER BY timestamp DESC")
 
     traces = cursor.fetchall()
 

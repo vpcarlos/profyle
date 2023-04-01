@@ -1,10 +1,13 @@
 import tempfile
+import json
+
 from starlette.types import ASGIApp, Scope, Receive, Send
+from viztracer import VizTracer
 
 from profyle.database.sql_lite import store_trace
 from profyle.models.trace import Trace
 from profyle.deps.get_connection import get_connection
-from viztracer import VizTracer
+
 
 
 class ProfileMiddleware:
@@ -43,7 +46,7 @@ class ProfileMiddleware:
         )
 
         trace = Trace(
-            data=self.tracer.data,
+            data=json.dumps(self.tracer.data),
             duration=end-start,
             name=scope['path'],
         )
