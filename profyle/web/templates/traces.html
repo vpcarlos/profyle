@@ -6,35 +6,37 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profyle</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/libs/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+    <script src="{{ url_for('static', path='/libs/bootstrap.bundle.min.js') }}"></script>
 </head>
 
-
-
 <body>
-    <table id="tg-Q7VB2" class="tg">
-        <thead>
-            <tr>
-                <th class="tg-0lax">Name</th>
-                <th class="tg-0lax">Duration</th>
-                <th class="tg-0lax">Timestamp</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for trace in traces %}
-            <tr>
-                <td class="tg-0lax"><a href="/traces/{{trace.id}}"> {{trace.name}} </option>
-                </td>
-                <td class="tg-0lax"> {{trace.duration}}</td>
-                <td class="tg-0lax"> {{trace.timestamp}}</td>
-            </tr>
-
-            {% endfor %}
-
-        </tbody>
-    </table>
-
-    <script src="{{ url_for('static', path='/script.js') }}"></script>
+    <div class="container pt-4">
+        <h1 class="title">Profyle.</h1>
+    </div>
+    <div class="container-lg pt-4">
+        <table class="table">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Duration (ms)</th>
+                    <th scope="col">Timestamp</th>
+                    <th scope="col"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for trace in traces %}
+                <tr>
+                    <th scope="row">{{trace.name}}</th>
+                    <td> {{trace.duration / 1000}}</td>
+                    <td>{{trace.timestamp}}</td>
+                    <td><a class="btn btn-primary" href="/traces/{{trace.id}}" role="button">View</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </body>
 
 
