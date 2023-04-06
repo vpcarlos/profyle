@@ -22,10 +22,10 @@ $ pip install profyle
 
 ## Example
 
-### FastApi
-
-#### Implement
-* Implement the middleware:
+### Implement
+In order to track all your API requests you must implement the <code>ProfileMiddleware</code>
+<details markdown="1">
+<summary>FastAPI</summary>
 
 ```Python
 from fastapi import FastAPI
@@ -38,8 +38,19 @@ app.add_middleware(ProfileMiddleware)
 async def read_item(item_id: int):
     return {"item_id": item_id}
 ```
+</details>
 
-#### Run
+<details markdown="1">
+<summary>Flask</summary>
+Soon..
+</details>
+
+<details markdown="1">
+<summary>Django</summary>
+Soon..
+</details>
+
+### Run
 * Run the web server:
 
 <div class="termy">
@@ -56,12 +67,12 @@ INFO:     Application startup complete.
 
 </div>
 
-#### List
+### List
 * List all requests tracing:
 
 ![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/traces.png?raw=true "Traces")
 
-#### Analyses
+### Analyze
 * Profyle stands on the shoulder of giants: <a href="https://github.com/gaogaotiantian/viztracer" class="external-link" target="_blank">Viztracer</a> and  <a href="https://github.com/google/perfetto" class="external-link" target="_blank">Perfetto</a>
 * Detailed function entry/exit information on timeline with source code
 * Super easy to use, no source code change for most features, no package dependency
@@ -71,14 +82,12 @@ INFO:     Application startup complete.
 * Works on Linux/MacOS/Window
 
 ![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/trace1.png?raw=true "Trace1")
+
 ![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/trace2.png?raw=true "Trace2")
 
 
-### Flask
-... coming soon
 
-
-## Commands
+## CLI Commands
 ### start
 * Start the web server and view profile traces
 <div class="termy">
