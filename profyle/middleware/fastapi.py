@@ -1,8 +1,6 @@
-import tempfile
 import json
 
 from starlette.types import ASGIApp, Scope, Receive, Send
-
 
 from profyle.database.sql_lite import store_trace
 from profyle.models.trace import Trace

@@ -80,8 +80,13 @@ async def localtrace(
     return trace.data
 
 
+@app.get('/')
+async def index():
+    return RedirectResponse('/traces')
+
+
 @app.get('/traces')
-def traces(
+async def traces(
     request: Request,
     db: Connection = Depends(get_connection),
 

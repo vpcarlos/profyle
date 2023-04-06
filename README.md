@@ -1,5 +1,5 @@
 # Profyle
-### Development tool for analysing and managing profile statistics
+### Development tool for analysing and managing python traces
 
 <a href="https://pypi.org/project/profyle" target="_blank">
     <img src="https://img.shields.io/pypi/v/profyle" alt="Package version">
@@ -56,15 +56,22 @@ INFO:     Application startup complete.
 
 </div>
 
-#### Search
-* Search all requests tracing and click on it:
+#### List
+* List all requests tracing:
 
 ![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/traces.png?raw=true "Traces")
 
 #### Analyses
-* Analyses a request profile:
+* Profyle stands on the shoulder of giants: <a href="https://github.com/gaogaotiantian/viztracer" class="external-link" target="_blank">Viztracer</a> and  <a href="https://github.com/google/perfetto" class="external-link" target="_blank">Perfetto</a>
+* Detailed function entry/exit information on timeline with source code
+* Super easy to use, no source code change for most features, no package dependency
+* Supports threading, multiprocessing, subprocess and async
+* Logs arbitrary function/variable using RegEx without code change
+* Powerful front-end, able to render GB-level trace smoothly
+* Works on Linux/MacOS/Window
 
-![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/trace.png?raw=true "Trace")
+![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/trace1.png?raw=true "Trace1")
+![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/trace2.png?raw=true "Trace2")
 
 
 ### Flask
@@ -96,6 +103,18 @@ INFO:     Application startup complete.
 $ profyle clean
 
 10 traces removed 
+```
+
+</div>
+
+### check
+* Check traces DB size
+<div class="termy">
+
+```console
+$ profyle check
+
+DB size: 30MB
 ```
 
 </div>

@@ -21,7 +21,7 @@
                 <tr>
                     <th scope="col">Name</th>
                     <th scope="col">Duration (ms)</th>
-                    <th scope="col">Timestamp</th>
+                    <th scope="col">Timestamp (utc)</th>
                     <th scope="col"></th>
                 </tr>
             </thead>
@@ -31,7 +31,7 @@
                     <th scope="row">{{trace.name}}</th>
                     <td> {{trace.duration / 1000}}</td>
                     <td>{{trace.timestamp}}</td>
-                    <td><a class="btn btn-primary" href="/traces/{{trace.id}}" role="button">View</a></td>
+                    <td><a class="btn btn-primary" href="/traces/{{trace.id}}" role="button">Analyze</a></td>
                 </tr>
                 {% endfor %}
             </tbody>

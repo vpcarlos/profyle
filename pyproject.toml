@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "profyle"
 version = "0.0.9"
-description = "Profyle, a development tool for analysing and managing profile statistics"
+description = "Profyle, a development tool for analysing and managing python traces"
 authors = ["Carlos Valdivia <vpcarlos97@gmail.com>"]
 maintainers = [
     "Carlos Valdivia <vpcarlos97@gmail.com>"
 ]
 repository = "https://github.com/vpcarlos/profyle"
-keywords = ["cprofile","devtool", "profyle"]
+keywords = ["cprofile","devtool", "perffeto", "profyle", "viztracer"]
 classifiers = [
     "Framework :: FastAPI",
     "License :: OSI Approved :: MIT License",

@@ -44,6 +44,17 @@ def remove_all_traces(db: Connection) -> int:
     return cursor.rowcount
 
 
+def vacuum(db: Connection) -> None:
+    cursor = db.cursor()
+    cursor.execute(
+        """
+        VACUUM
+        """
+    )
+    db.commit()
+    cursor.close()
+
+
 def store_select_trace(trace_id: int, db: Connection) -> None:
     try:
         cursor = db.cursor()
@@ -92,7 +103,8 @@ def store_trace(trace: Trace, db: Connection) -> None:
 def get_all_traces(db: Connection) -> List[Trace]:
     db.row_factory = Row
     cursor = db.cursor()
-    cursor.execute("SELECT id, timestamp, duration, name FROM traces ORDER BY timestamp DESC")
+    cursor.execute(
+        "SELECT id, timestamp, duration, name FROM traces ORDER BY timestamp DESC")
 
     traces = cursor.fetchall()
 
