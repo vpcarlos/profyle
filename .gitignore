@@ -133,3 +133,6 @@ profile.db
 
 # poetry
 poetry.lock
+
+# Vscode
+.vscode
