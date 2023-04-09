@@ -1,15 +1,16 @@
 [tool.poetry]
 name = "profyle"
-version = "0.0.11"
+version = "0.0.12"
 description = "Profyle, a development tool for analysing and managing python traces"
 authors = ["Carlos Valdivia <vpcarlos97@gmail.com>"]
 maintainers = [
     "Carlos Valdivia <vpcarlos97@gmail.com>"
 ]
 repository = "https://github.com/vpcarlos/profyle"
-keywords = ["cprofile","devtool", "perffeto", "profyle", "viztracer"]
+keywords = ["cprofile","devtool", "perffeto", "profyle", "viztracer","fastapi","flask"]
 classifiers = [
     "Framework :: FastAPI",
+    "Framework :: Flask",
     "License :: OSI Approved :: MIT License",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
@@ -51,6 +52,11 @@ fastapi = ">=0.70.0"
 autopep8 = "^2.0.1"
 pytest = "^7.2.1"
 httpx = "^0.23.3"
+flask = "^2.0.0"
+
+
+[tool.poetry.group.flask.dependencies]
+flask = "^2.0.0"
 
 [build-system]
 requires = ["poetry-core"]

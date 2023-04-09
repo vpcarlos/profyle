@@ -8,6 +8,14 @@
     <img src="https://img.shields.io/pypi/pyversions/profyle.svg?color=%2334D058" alt="Supported Python versions">
 </a>
 
+## Why do you need Profyle?
+### Bottlenecks
+With Profyle you can easily detect where in your code you have a bottleneck, just analize the trace and see what function or operation is taking most of the request execution time
+
+### Enhance performace
+Analize the traces and decide which parts of your code should be improved
+
+
 ## Installation
 
 <div class="termy">
@@ -23,16 +31,16 @@ $ pip install profyle
 ## Example
 
 ### 1. Implement
-In order to track all your API requests you must implement the <code>ProfileMiddleware</code>
+In order to track all your API requests you must implement the <code>ProfyleMiddleware</code>
 <details markdown="1">
 <summary>FastAPI</summary>
 
 ```Python
 from fastapi import FastAPI
-from profyle.middleware.fastapi import ProfileMiddleware
+from profyle.middleware.fastapi import ProfyleMiddleware
 
 app = FastAPI()
-app.add_middleware(ProfileMiddleware)
+app.add_middleware(ProfyleMiddleware)
 
 @app.get("/items/{item_id}")
 async def read_item(item_id: int):
@@ -42,7 +50,19 @@ async def read_item(item_id: int):
 
 <details markdown="1">
 <summary>Flask</summary>
-Soon..
+
+```Python
+from flask import Flask
+from profyle.middleware.flask import ProfyleMiddleware
+
+app = Flask(__name__)
+
+app.wsgi_app = ProfyleMiddleware(app.wsgi_app)
+
+@app.route("/")
+def hello_world():
+    return "<p>Hello, World!</p>"
+```
 </details>
 
 <details markdown="1">
