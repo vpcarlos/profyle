@@ -24,5 +24,5 @@ client = TestClient(app)
 
 
 def test_fastapi_middleware():
-    client.post('test')
+    client.post('test?demo=true')
     client.post('test1')

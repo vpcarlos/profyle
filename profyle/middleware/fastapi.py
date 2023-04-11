@@ -14,7 +14,7 @@ class ProfyleMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if self.enabled and scope['type'] == 'http':
-            with profyle(name=scope['path']):
+            with profyle(name=scope['raw_path']):
                 await self.app(scope, receive, send)
             return
         await self.app(scope, receive, send)
