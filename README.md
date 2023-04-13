@@ -10,10 +10,10 @@
 
 ## Why do you need Profyle?
 ### Bottlenecks
-With Profyle you can easily detect where in your code you have a bottleneck, just analize the trace and see what function or operation is taking most of the request execution time
+With Profyle you can easily detect where in your code you have a bottleneck, simply analyze the trace and see what function or operation is taking most of the execution time of the request
 
 ### Enhance performace
-Analize the traces and decide which parts of your code should be improved
+Analyze the traces and decide which parts of your code should be improved
 
 
 ## Installation
