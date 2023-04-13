@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "profyle"
-version = "0.0.13"
+version = "0.0.14"
 description = "Profyle, a development tool for analysing and managing python traces"
 authors = ["Carlos Valdivia <vpcarlos97@gmail.com>"]
 maintainers = [
