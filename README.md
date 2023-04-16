@@ -36,7 +36,7 @@ In order to track all your API requests you must implement the <code>ProfyleMidd
 * enabled : Default true. You can use an env variable to decide if profyle is enabled.
 * pattern: Profyle only will trace those paths that match with pattern (<a href="https://en.wikipedia.org/wiki/Glob_(programming)" class="external-link" target="_blank">glob pattern</a>)
 
-<details markdown="1">
+<details markdown="1" open>
 <summary>FastAPI</summary>
 
 ```Python
