@@ -7,8 +7,11 @@ from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
 import uvicorn
 
-from profyle.database.sql_lite import create_select_trace, create_trace_table, get_all_traces, get_select_trace, get_trace_by_id, store_select_trace
-from profyle.deps.get_connection import get_connection
+from profyle.application.trace.create import create_trace_selected_table, create_trace_table
+from profyle.application.trace.get import get_all_traces, get_trace_selected, get_trace_by_id
+from profyle.application.trace.store import store_trace_selected
+from profyle.infrastructure.sqlite3.get_connection import get_connection
+from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 from profyle.settings import settings
 
 
@@ -17,13 +20,9 @@ app = FastAPI(
     version='1.0.0'
 )
 
-origins = [
-    '*'
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=['*'],
     allow_methods=['*'],
     allow_headers=['*'],
 )
@@ -32,21 +31,25 @@ app.add_middleware(
 @app.on_event('startup')
 async def startup_event():
     db = get_connection()
-    create_trace_table(db)
-    create_select_trace(db)
+    sqlite_trace_repo = SQLiteTraceRepository(db)
+    create_trace_table(repo=sqlite_trace_repo)
+    create_trace_selected_table(repo=sqlite_trace_repo)
 
+STATIC_PATH = ('infrastructure', 'web', 'static')
 app.mount(
     '/static',
-    StaticFiles(directory=settings.get_path('web', 'static')),
+    StaticFiles(directory=settings.get_path(*STATIC_PATH)),
     name='static'
 )
+
 app.mount(
     '/show',
     StaticFiles(directory=settings.get_viztracer_static_files(), html=True),
     name='perfetto'
 )
 
-templates = Jinja2Templates(directory=settings.get_path('web', 'templates'))
+TEMPLATES_PATH = ('infrastructure', 'web', 'templates')
+templates = Jinja2Templates(directory=settings.get_path(*TEMPLATES_PATH))
 
 
 @app.get('/vizviewer_info')
@@ -58,10 +61,14 @@ async def vizviewer_info():
 async def file_info(
     db: Connection = Depends(get_connection),
 ):
-    trace_id = get_select_trace(db)
+    sqlite_trace_repo = SQLiteTraceRepository(db)
+    trace_id = get_trace_selected(repo=sqlite_trace_repo)
     if not trace_id:
         return {}
-    trace = get_trace_by_id(trace_id, db)
+    trace = get_trace_by_id(
+        trace_id=trace_id,
+        repo=sqlite_trace_repo
+    )
     if not trace:
         return {}
     return trace.data.get('file_info')
@@ -71,10 +78,14 @@ async def file_info(
 async def localtrace(
     db: Connection = Depends(get_connection),
 ):
-    trace_id = get_select_trace(db)
+    sqlite_trace_repo = SQLiteTraceRepository(db)
+    trace_id = get_trace_selected(repo=sqlite_trace_repo)
     if not trace_id:
         return {}
-    trace = get_trace_by_id(trace_id, db)
+    trace = get_trace_by_id(
+        trace_id=trace_id,
+        repo=sqlite_trace_repo
+    )
     if not trace:
         return {}
     return trace.data
@@ -91,7 +102,8 @@ async def traces(
     db: Connection = Depends(get_connection),
 
 ):
-    traces = get_all_traces(db)
+    sqlite_trace_repo = SQLiteTraceRepository(db)
+    traces = get_all_traces(repo=sqlite_trace_repo)
     return templates.TemplateResponse(
         name='traces.html',
         context={
@@ -106,9 +118,10 @@ async def get_trace(
     id: int,
     db: Connection = Depends(get_connection),
 ):
-    store_select_trace(
+    sqlite_trace_repo = SQLiteTraceRepository(db)
+    store_trace_selected(
         trace_id=id,
-        db=db
+        repo=sqlite_trace_repo
     )
     return RedirectResponse(url='/show')
 

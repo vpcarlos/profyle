@@ -32,15 +32,19 @@ $ pip install profyle
 
 ### 1. Implement
 In order to track all your API requests you must implement the <code>ProfyleMiddleware</code>
+#### ProfyleMiddleware
+* enabled : Default true. You can use an env variable to decide if profyle is enabled.
+* pattern: Profyle only will trace those paths that match with pattern (<a href="https://en.wikipedia.org/wiki/Glob_(programming)" class="external-link" target="_blank">glob pattern</a>)
+
 <details markdown="1">
 <summary>FastAPI</summary>
 
 ```Python
 from fastapi import FastAPI
-from profyle.middleware.fastapi import ProfyleMiddleware
+from profyle import ProfyleFastApiMiddleware
 
 app = FastAPI()
-app.add_middleware(ProfyleMiddleware)
+app.add_middleware(ProfyleFastApiMiddleware, pattern='*/api/v2/*')
 
 @app.get("/items/{item_id}")
 async def read_item(item_id: int):
@@ -53,11 +57,11 @@ async def read_item(item_id: int):
 
 ```Python
 from flask import Flask
-from profyle.middleware.flask import ProfyleMiddleware
+from profyle import ProfyleFlaskMiddleware
 
 app = Flask(__name__)
 
-app.wsgi_app = ProfyleMiddleware(app.wsgi_app)
+app.wsgi_app = ProfyleFlaskMiddleware(app.wsgi_app, pattern='*/api/products*')
 
 @app.route("/")
 def hello_world():
