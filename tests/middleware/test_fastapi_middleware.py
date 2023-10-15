@@ -1,9 +1,10 @@
 from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
-from profyle import ProfyleFastApiMiddleware
+
+from profyle.fastapi import ProfyleMiddleware
 
 app = FastAPI()
-app.add_middleware(ProfyleFastApiMiddleware, pattern='*test[?]*')
+app.add_middleware(ProfyleMiddleware, pattern='*test[?]*')
 
 router = APIRouter()
 

@@ -48,7 +48,7 @@ In order to track all your API requests you must implement the <code>ProfyleMidd
 
 ```Python
 from fastapi import FastAPI
-from profyle import ProfyleFastApiMiddleware
+from profyle.fastapi import ProfyleMiddleware
 
 app = FastAPI()
 app.add_middleware(ProfyleFastApiMiddleware, pattern='*/api/v2/*')
@@ -64,7 +64,7 @@ async def read_item(item_id: int):
 
 ```Python
 from flask import Flask
-from profyle import ProfyleFlaskMiddleware
+from profyle.flask import ProfyleMiddleware
 
 app = Flask(__name__)
 

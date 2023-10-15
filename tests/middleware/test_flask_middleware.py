@@ -2,7 +2,7 @@ import os
 
 from flask import Flask
 
-from profyle import ProfyleFlaskMiddleware
+from profyle.flask import ProfyleMiddleware
 
 
 app = Flask('flask_test', root_path=os.path.dirname(__file__))
@@ -11,7 +11,7 @@ app.config.update(
     SECRET_KEY='test key',
 )
 
-app.wsgi_app = ProfyleFlaskMiddleware(app.wsgi_app, pattern='*test*')
+app.wsgi_app = ProfyleMiddleware(app.wsgi_app, pattern='*test*')
 
 
 @app.route('/test')
