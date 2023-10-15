@@ -1,5 +1,9 @@
 <p align="center">
- <img src="https://github.com/vpcarlos/profyle/blob/main/docs/img/profyle.png?raw=true" alt="Profyle">
+ <img 
+    src="https://github.com/vpcarlos/profyle/blob/main/docs/img/profyle.png?raw=true" 
+    style="max-width:60%;" 
+    alt="Profyle"
+ >
 </p>
 
 ### Development tool for analysing and managing python traces
