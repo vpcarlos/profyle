@@ -1,5 +1,5 @@
 from typing import Optional
-from profyle.application.profyle import profyle_stored
+from profyle.application.profyle import profyle
 from profyle.infrastructure.sqlite3.get_connection import get_connection
 from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 
@@ -19,7 +19,7 @@ class ProfyleMiddleware:
         if environ.get('wsgi.url_scheme') == 'http' and self.enabled:
             db = get_connection()
             sqlite_repo = SQLiteTraceRepository(db)
-            with profyle_stored(
+            with profyle(
                 name=environ['REQUEST_URI'],
                 pattern=self.pattern,
                 repo=sqlite_repo

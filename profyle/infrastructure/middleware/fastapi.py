@@ -1,7 +1,7 @@
 from typing import Optional
 from starlette.types import ASGIApp, Scope, Receive, Send
 
-from profyle.application.profyle import profyle_stored
+from profyle.application.profyle import profyle
 from profyle.infrastructure.sqlite3.get_connection import get_connection
 from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 
@@ -21,7 +21,7 @@ class ProfyleMiddleware:
         if self.enabled and scope['type'] == 'http':
             db = get_connection()
             sqlite_repo = SQLiteTraceRepository(db)
-            with profyle_stored(
+            with profyle(
                 name=scope['raw_path'].decode("utf-8"),
                 pattern=self.pattern,
                 repo=sqlite_repo

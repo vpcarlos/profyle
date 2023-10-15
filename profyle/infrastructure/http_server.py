@@ -126,6 +126,16 @@ async def get_trace(
     return RedirectResponse(url='/show')
 
 
+@app.delete('/traces/{id}', status_code=204)
+async def delete_trace(
+    id: int,
+    db: Connection = Depends(get_connection),
+
+) -> None:
+    sqlite_trace_repo = SQLiteTraceRepository(db)
+    sqlite_trace_repo.delete_trace_by_id(id)
+
+
 async def start_server():
     config = uvicorn.Config(app, port=0, log_level='info')
     server = uvicorn.Server(config)

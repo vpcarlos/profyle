@@ -6,32 +6,94 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profyle</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/libs/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
-    <script src="{{ url_for('static', path='/libs/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', path='/libs/tailwind.js') }}"></script>
 </head>
 
-<body>
-    <div class="container pt-4">
-        <h1 class="title">Profyle.</h1>
-    </div>
-    <div class="container-lg pt-4">
-        <table class="table">
-            <thead class="table-light">
+<body class="bg-gray-50">
+    <h1 class="text-4xl m-5 font-medium text-emerald-400 flex items-baseline">
+        <span>
+            Profyl
+        </span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" fill="currentColor" class="bi bi-bar-chart-fill"
+            viewBox="0 0 16 16" transform="rotate(90)">
+            <path
+                d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3zm5-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2z" />
+        </svg>
+    </h1>
+    <div class="relative overflow-x-auto  sm:rounded-lg m-5">
+        <table class="w-full text-sm text-left text-gray-500">
+            <thead class="text-xs text-white uppercase bg-emerald-400">
                 <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Duration (ms)</th>
-                    <th scope="col">Timestamp (utc)</th>
-                    <th scope="col"></th>
+                    <th scope="col" class="px-7 py-3">
+                        <div class="flex items-center gap-2">
+                            Endpoint
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                class="bi bi-sign-turn-right-fill" viewBox="0 0 16 16">
+                                <path
+                                    d="M9.05.435c-.58-.58-1.52-.58-2.1 0L.436 6.95c-.58.58-.58 1.519 0 2.098l6.516 6.516c.58.58 1.519.58 2.098 0l6.516-6.516c.58-.58.58-1.519 0-2.098L9.05.435ZM9 8.466V7H7.5A1.5 1.5 0 0 0 6 8.5V11H5V8.5A2.5 2.5 0 0 1 7.5 6H9V4.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L9.41 8.658A.25.25 0 0 1 9 8.466Z" />
+                            </svg>
+                        </div>
+                    </th>
+                    <th scope="col" class="px-7 py-3">
+                        <div class="flex items-center gap-2">
+                            Duration (ms)
+
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                class="bi bi-stopwatch-fill" viewBox="0 0 16 16">
+                                <path
+                                    d="M6.5 0a.5.5 0 0 0 0 1H7v1.07A7.001 7.001 0 0 0 8 16a7 7 0 0 0 5.29-11.584.531.531 0 0 0 .013-.012l.354-.354.353.354a.5.5 0 1 0 .707-.707l-1.414-1.415a.5.5 0 1 0-.707.707l.354.354-.354.354a.717.717 0 0 0-.012.012A6.973 6.973 0 0 0 9 2.071V1h.5a.5.5 0 0 0 0-1h-3zm2 5.6V9a.5.5 0 0 1-.5.5H4.5a.5.5 0 0 1 0-1h3V5.6a.5.5 0 1 1 1 0z" />
+                            </svg>
+                        </div>
+                    </th>
+                    <th scope="col" class="px-7 py-3">
+                        <div class="flex items-center gap-2">
+                            Timestamp (utc)
+
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                class="bi bi-calendar-event-fill" viewBox="0 0 16 16">
+                                <path
+                                    d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v1h16V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4V.5zM16 14V5H0v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zm-3.5-7h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5z" />
+                            </svg>
+                        </div>
+                    </th>
+                    <th scope="col" class="py-3">
+                        <span class="sr-only"> Action</span>
+                    </th>
                 </tr>
             </thead>
             <tbody>
+                {% if not traces %}
+                <tr class="bg-white border-b">
+                    <td class="px-6 py-4" colspan="4">
+                        <h1>No traces</h1>
+                    </td>
+                </tr>
+                {% endif %}
                 {% for trace in traces %}
-                <tr>
-                    <th scope="row">{{trace.name}}</th>
-                    <td> {{trace.duration / 1000}}</td>
-                    <td>{{trace.timestamp}}</td>
-                    <td><a class="btn btn-primary" href="/traces/{{trace.id}}" role="button">Analyze</a></td>
+                <tr class="bg-white border-b  hover:bg-gray-50">
+                    <th scope="row"
+                        class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap max-w-xs overflow-x-auto">
+                        {{trace.name}}
+                    </th>
+                    <td class="px-7 py-4">
+                        {{trace.duration / 1000}}
+                    </td>
+                    <td class="px-7 py-4">
+                        {{trace.timestamp}}
+                    </td>
+                    <td class="py-4">
+                        <div class="flex gap-3 font-medium">
+                            <a href="/traces/{{trace.id}}"
+                                class="font-medium text-blue-400 flex items-center gap-2 hover:underline hover:text-blue-500">
+                                Analyze
+                            </a>
+                            <a href="#" trace-id="{{trace.id}}"
+                                class="remove-trace font-medium text-red-400 flex items-center gap-2 hover:underline hover:text-red-500">
+                                Remove
+                            </a>
+                        </div>
+
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -39,5 +101,22 @@
     </div>
 </body>
 
+<script>
+
+    document.querySelectorAll('.remove-trace').forEach(element => {
+        element.addEventListener('click',(event) => {
+            event.preventDefault()
+            const traceId=event.target.getAttribute('trace-id')
+            console.log(traceId)
+            fetch(`/traces/${traceId}`,{
+                method: 'DELETE'
+            }).then(response => {
+                if(response.status===204) {
+                    window.location.reload()
+                }
+            })
+        })
+    })
+</script>
 
 </html>

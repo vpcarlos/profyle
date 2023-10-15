@@ -6,7 +6,7 @@ from rich import print
 
 
 from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
-from profyle.application.trace.remove import remove_all_traces
+from profyle.application.trace.delete import delete_all_traces
 from profyle.application.trace.vacuum import vacuum
 from profyle.infrastructure.sqlite3.get_connection import get_connection
 from profyle.infrastructure.http_server import start_server
@@ -25,7 +25,7 @@ def start():
 def clean():
     db = get_connection()
     sqlite_repo = SQLiteTraceRepository(db)
-    removed_traces = remove_all_traces(sqlite_repo)
+    removed_traces = delete_all_traces(sqlite_repo)
     vacuum(sqlite_repo)
     print(f'[green]{removed_traces} traces removed [/green]')
 

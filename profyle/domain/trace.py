@@ -1,5 +1,5 @@
 from typing import Any
-from pydantic import BaseModel, Json
+from pydantic import BaseModel, Json, computed_field
 
 
 class Trace(BaseModel):
@@ -7,18 +7,23 @@ class Trace(BaseModel):
     name: str
     duration: float = 0
     timestamp: str = ''
-    id: str = ''
+    id: int
 
-    def __init__(self, **data: Any) -> None:
-        super().__init__(**data)
-        if self.data and not self.duration:
-            start = min(
-                trace.get('ts')
-                for trace in self.data.get('traceEvents', [])
-                if trace.get('ts')
-            )
-            end = max(
-                trace.get('ts', 0)
-                for trace in self.data.get('traceEvents', [])
-            )
-            self.duration = end-start
+
+class TraceCreate(BaseModel):
+    data: Json[Any] = {}
+    name: str
+
+    @computed_field
+    @property
+    def duration(self) -> float:
+        start = min(
+            trace.get('ts')
+            for trace in self.data.get('traceEvents', [])
+            if trace.get('ts')
+        )
+        end = max(
+            trace.get('ts', 0)
+            for trace in self.data.get('traceEvents', [])
+        )
+        return end-start

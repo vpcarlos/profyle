@@ -2,7 +2,7 @@ from sqlite3 import Connection, Error, Row
 from typing import List, Optional
 import json
 
-from profyle.domain.trace import Trace
+from profyle.domain.trace import Trace, TraceCreate
 from profyle.domain.trace_repository import TraceRepository
 
 
@@ -35,7 +35,7 @@ class SQLiteTraceRepository(TraceRepository):
             """
         )
 
-    def remove_all_traces(self) -> int:
+    def delete_all_traces(self) -> int:
         cursor = self.db.cursor()
         cursor.execute(
             """
@@ -74,7 +74,7 @@ class SQLiteTraceRepository(TraceRepository):
         except Error as error:
             print("Failed to insert data into selected_trace table", error)
 
-    def store_trace(self, trace: Trace) -> None:
+    def store_trace(self, trace: TraceCreate) -> None:
         try:
             self.create_trace_table()
             cursor = self.db.cursor()
@@ -124,3 +124,14 @@ class SQLiteTraceRepository(TraceRepository):
             "SELECT trace_id FROM trace_selected where id = ?", (1,))
         trace = cursor.fetchone()
         return trace['trace_id'] if trace else None
+
+    def delete_trace_by_id(self, trace_id: int):
+        cursor = self.db.cursor()
+        cursor.execute(
+            """
+            DELETE FROM traces WHERE id = ?
+            """,
+            (trace_id,)
+        )
+        self.db.commit()
+        cursor.close()
