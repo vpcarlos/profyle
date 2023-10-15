@@ -1,7 +1,7 @@
 <p align="center">
  <img 
     src="https://github.com/vpcarlos/profyle/blob/main/docs/img/profyle.png?raw=true" 
-    style="max-width:60%;" 
+    style="max-width:30%;" 
     alt="Profyle"
  >
 </p>
