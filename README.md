@@ -51,7 +51,7 @@ from fastapi import FastAPI
 from profyle.fastapi import ProfyleMiddleware
 
 app = FastAPI()
-app.add_middleware(ProfyleFastApiMiddleware, pattern='*/api/v2/*')
+app.add_middleware(ProfyleMiddleware, pattern='*/api/v2/*')
 
 @app.get("/items/{item_id}")
 async def read_item(item_id: int):
@@ -68,7 +68,7 @@ from profyle.flask import ProfyleMiddleware
 
 app = Flask(__name__)
 
-app.wsgi_app = ProfyleFlaskMiddleware(app.wsgi_app, pattern='*/api/products*')
+app.wsgi_app = ProfyleMiddleware(app.wsgi_app, pattern='*/api/products*')
 
 @app.route("/")
 def hello_world():
