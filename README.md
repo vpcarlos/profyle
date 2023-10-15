@@ -1,4 +1,7 @@
-# Profyle
+<p align="center">
+ <img src="https://github.com/vpcarlos/profyle/blob/main/docs/img/profyle.png?raw=true" alt="Profyle">
+</p>
+
 ### Development tool for analysing and managing python traces
 
 <a href="https://pypi.org/project/profyle" target="_blank">
