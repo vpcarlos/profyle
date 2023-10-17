@@ -17,7 +17,8 @@ app = typer.Typer()
 
 
 @app.command()
-def start():
+def start(port:int = 0):
+    settings.port = port
     asyncio.run(start_server())
 
 
