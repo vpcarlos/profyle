@@ -6,6 +6,7 @@ import viztracer
 
 class Settings(BaseSettings):
     app_name: str = 'Profyle'
+    host:str = "127.0.0.1"
     port: int = 0
     project_dir: str = os.path.normpath(
         os.path.join(

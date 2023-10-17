@@ -17,8 +17,9 @@ app = typer.Typer()
 
 
 @app.command()
-def start(port:int = 0):
+def start(port:int = 0, host:str="127.0.0.1"):
     settings.port = port
+    settings.host = host
     asyncio.run(start_server())
 
 
