@@ -1,1 +1,1 @@
-from .infrastructure.middleware.fastapi import ProfyleMiddleware
+from profyle.infrastructure.middleware.fastapi import ProfyleMiddleware

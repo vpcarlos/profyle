@@ -1,9 +1,9 @@
-from typing import List, Optional
+from typing import  Optional
 from profyle.domain.trace import Trace
 from profyle.domain.trace_repository import TraceRepository
 
 
-def get_all_traces(repo: TraceRepository) -> List[Trace]:
+def get_all_traces(repo: TraceRepository) -> list[Trace]:
     return repo.get_all_traces()
 
 

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 
 from profyle.domain.trace import Trace, TraceCreate
 
@@ -31,7 +31,7 @@ class TraceRepository(ABC):
         ...
 
     @abstractmethod
-    def get_all_traces(self) -> List[Trace]:
+    def get_all_traces(self) -> list[Trace]:
         ...
 
     @abstractmethod
@@ -43,5 +43,5 @@ class TraceRepository(ABC):
         ...
 
     @abstractmethod
-    def delete_trace_by_id(self, trace_id: int) -> int:
+    def delete_trace_by_id(self, trace_id: int):
         ...

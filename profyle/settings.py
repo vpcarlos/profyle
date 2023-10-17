@@ -5,11 +5,11 @@ import viztracer
 
 
 class Settings(BaseSettings):
-    app_name: str = 'Profyle'
+    app_name: str = "Profyle"
     project_dir: str = os.path.normpath(
         os.path.join(
             os.path.abspath(__file__),
-            '..',
+            "..",
         )
     )
 
@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     def get_viztracer_static_files(self):
         return os.path.normpath(os.path.join(
             os.path.abspath(viztracer.__file__),
-            '..',
-            'web_dist'
+            "..",
+            "web_dist"
         ))
 
 

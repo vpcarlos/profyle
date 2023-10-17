@@ -6,7 +6,7 @@ class Trace(BaseModel):
     data: Json[Any] = {}
     name: str
     duration: float = 0
-    timestamp: str = ''
+    timestamp: str = ""
     id: int
 
 
@@ -17,13 +17,21 @@ class TraceCreate(BaseModel):
     @computed_field
     @property
     def duration(self) -> float:
+        any_trace_to_analize = any(
+            True
+            for trace in self.data.get("traceEvents", [])
+            if trace.get("ts")
+        )
+        if not any_trace_to_analize:
+            return 0
+    
         start = min(
-            trace.get('ts')
-            for trace in self.data.get('traceEvents', [])
-            if trace.get('ts')
+            trace.get("ts",0)
+            for trace in self.data.get("traceEvents", [])
+            if trace.get("ts")
         )
         end = max(
-            trace.get('ts', 0)
-            for trace in self.data.get('traceEvents', [])
+            trace.get("ts", 0)
+            for trace in self.data.get("traceEvents", [])
         )
         return end-start

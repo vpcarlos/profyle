@@ -40,8 +40,13 @@ $ pip install profyle
 ### 1. Implement
 In order to track all your API requests you must implement the <code>ProfyleMiddleware</code>
 #### ProfyleMiddleware
-* enabled : Default true. You can use an env variable to decide if profyle is enabled.
-* pattern: Profyle only will trace those paths that match with pattern (<a href="https://en.wikipedia.org/wiki/Glob_(programming)" class="external-link" target="_blank">glob pattern</a>)
+| Attribute | Required | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | No | `True` | Enable or disable Profyle |
+| `pattern` | No | `None` | 0nly trace those paths that match with pattern (<a href="https://en.wikipedia.org/wiki/Glob_(programming)" class="external-link" target="_blank">glob pattern</a>)  |
+| `max_stack_depth` | No | `-1` | Limit maximum stack trace depth |
+| `min_duration` | No | `0` (milisecons) | Only record traces with a greather duration than the limit. |
+
 
 <details markdown="1" open>
 <summary>FastAPI</summary>
@@ -51,7 +56,27 @@ from fastapi import FastAPI
 from profyle.fastapi import ProfyleMiddleware
 
 app = FastAPI()
-app.add_middleware(ProfyleMiddleware, pattern='*/api/v2/*')
+# Trace all requests
+app.add_middleware(ProfyleMiddleware)
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: int):
+    return {"item_id": item_id}
+```
+
+```Python
+from fastapi import FastAPI
+from profyle.fastapi import ProfyleMiddleware
+
+app = FastAPI()
+# Trace all requests that match that start with /api/products 
+# with a minimum duration of 100ms and a maximum stack depth of 20
+app.add_middleware(
+    ProfyleMiddleware,
+    pattern="/api/products*",
+    max_stack_depth=20,
+    min_duration=100
+)
 
 @app.get("/items/{item_id}")
 async def read_item(item_id: int):
@@ -68,7 +93,7 @@ from profyle.flask import ProfyleMiddleware
 
 app = Flask(__name__)
 
-app.wsgi_app = ProfyleMiddleware(app.wsgi_app, pattern='*/api/products*')
+app.wsgi_app = ProfyleMiddleware(app.wsgi_app, pattern="*/api/products*")
 
 @app.route("/")
 def hello_world():
@@ -120,12 +145,19 @@ INFO:     Application startup complete.
 ## CLI Commands
 ### start
 * Start the web server and view profile traces
+
+| Options | Type | Default | Description |
+| --- | --- | --- | --- |
+| --port | INTEGER | 0 | web server port |                                                                 
+| --host | TEXT | 127.0.0.1 | web server host |                                                                 
+                                                                  
+
 <div class="termy">
 
 ```console
-$ profyle start
+$ profyle start --port 5432
 
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Uvicorn running on http://127.0.0.1:5432 (Press CTRL+C to quit)
 INFO:     Started reloader process [28720]
 INFO:     Started server process [28722]
 INFO:     Waiting for application startup.

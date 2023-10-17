@@ -10,16 +10,19 @@
 </head>
 
 <body class="bg-gray-50">
-    <h1 class="text-4xl m-5 font-medium text-emerald-400 flex items-baseline">
-        <span>
-            Profyl
-        </span>
-        <svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" fill="currentColor" class="bi bi-bar-chart-fill"
-            viewBox="0 0 16 16" transform="rotate(90)">
-            <path
-                d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3zm5-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2z" />
-        </svg>
-    </h1>
+    <header class="flex items-center justify-between mt-5 ml-5">
+        <h1 class="text-4xl font-medium text-emerald-400 flex items-baseline">
+            <span>
+                Profyl
+            </span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" fill="currentColor"
+                class="bi bi-bar-chart-fill" viewBox="0 0 16 16" transform="rotate(90)">
+                <path
+                    d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3zm5-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2z" />
+            </svg>
+        </h1>
+    </header>
+
     <div class="relative overflow-x-auto  sm:rounded-lg m-5">
         <table class="w-full text-sm text-left text-gray-500">
             <thead class="text-xs text-white uppercase bg-emerald-400">
@@ -73,10 +76,20 @@
                 <tr class="bg-white border-b  hover:bg-gray-50">
                     <th scope="row"
                         class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap max-w-xs overflow-x-auto">
+                        {%set method_and_name = trace.name.split(' ')%}
+
+                        {% if method_and_name[1] %}
+                        <span
+                            class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-600 ring-1 ring-inset ring-emerald-500/10 mr-2">
+                            {{method_and_name[0]}}
+                        </span>
+                        {{method_and_name[1]}}
+                        {% else %}
                         {{trace.name}}
+                        {% endif %}
                     </th>
                     <td class="px-7 py-4">
-                        {{trace.duration / 1000}}
+                        {{(trace.duration / 1000) | round(2)}}
                     </td>
                     <td class="px-7 py-4">
                         {{trace.timestamp}}

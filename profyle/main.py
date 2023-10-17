@@ -17,8 +17,8 @@ app = typer.Typer()
 
 
 @app.command()
-def start():
-    asyncio.run(start_server())
+def start(port: int = 0, host: str = "127.0.0.1"):
+    asyncio.run(start_server(port=port, host=host))
 
 
 @app.command()
@@ -27,16 +27,16 @@ def clean():
     sqlite_repo = SQLiteTraceRepository(db)
     removed_traces = delete_all_traces(sqlite_repo)
     vacuum(sqlite_repo)
-    print(f'[green]{removed_traces} traces removed [/green]')
+    print(f"[green]{removed_traces} traces removed [/green]")
 
 
 @app.command()
 def check():
-    db_size_in_bytes = os.path.getsize(settings.get_path('profile.db'))
+    db_size_in_bytes = os.path.getsize(settings.get_path("profile.db"))
     db_size_in_megabytes = round(db_size_in_bytes/10**6, 2)
     db_size_in_gigabytes = round(db_size_in_megabytes/10**3, 2)
 
     if db_size_in_megabytes > 1000:
-        print(f'[orange1]DB size: {db_size_in_gigabytes} GB [/orange1]')
+        print(f"[orange1]DB size: {db_size_in_gigabytes} GB [/orange1]")
         return
-    print(f'[orange1]DB size: {db_size_in_megabytes} MB [/orange1]')
+    print(f"[orange1]DB size: {db_size_in_megabytes} MB [/orange1]")

@@ -16,48 +16,48 @@ from profyle.settings import settings
 
 
 app = FastAPI(
-    title='Profyle',
-    version='1.0.0'
+    title="Profyle",
+    version="1.0.0"
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],
-    allow_methods=['*'],
-    allow_headers=['*'],
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
-@app.on_event('startup')
+@app.on_event("startup")
 async def startup_event():
     db = get_connection()
     sqlite_trace_repo = SQLiteTraceRepository(db)
     create_trace_table(repo=sqlite_trace_repo)
     create_trace_selected_table(repo=sqlite_trace_repo)
 
-STATIC_PATH = ('infrastructure', 'web', 'static')
+STATIC_PATH = ("infrastructure", "web", "static")
 app.mount(
-    '/static',
+    "/static",
     StaticFiles(directory=settings.get_path(*STATIC_PATH)),
-    name='static'
+    name="static"
 )
 
 app.mount(
-    '/show',
+    "/show",
     StaticFiles(directory=settings.get_viztracer_static_files(), html=True),
-    name='perfetto'
+    name="perfetto"
 )
 
-TEMPLATES_PATH = ('infrastructure', 'web', 'templates')
+TEMPLATES_PATH = ("infrastructure", "web", "templates")
 templates = Jinja2Templates(directory=settings.get_path(*TEMPLATES_PATH))
 
 
-@app.get('/vizviewer_info')
+@app.get("/vizviewer_info")
 async def vizviewer_info():
-    return {'is_flamegraph': False}
+    return {"is_flamegraph": False}
 
 
-@app.get('/file_info')
+@app.get("/file_info")
 async def file_info(
     db: Connection = Depends(get_connection),
 ):
@@ -71,10 +71,10 @@ async def file_info(
     )
     if not trace:
         return {}
-    return trace.data.get('file_info')
+    return trace.data.get("file_info")
 
 
-@app.get('/localtrace')
+@app.get("/localtrace")
 async def localtrace(
     db: Connection = Depends(get_connection),
 ):
@@ -91,12 +91,12 @@ async def localtrace(
     return trace.data
 
 
-@app.get('/')
+@app.get("/")
 async def index():
-    return RedirectResponse('/traces')
+    return RedirectResponse("/traces")
 
 
-@app.get('/traces')
+@app.get("/traces")
 async def traces(
     request: Request,
     db: Connection = Depends(get_connection),
@@ -105,15 +105,15 @@ async def traces(
     sqlite_trace_repo = SQLiteTraceRepository(db)
     traces = get_all_traces(repo=sqlite_trace_repo)
     return templates.TemplateResponse(
-        name='traces.html',
+        name="traces.html",
         context={
-            'request': request,
-            'traces': [trace.dict() for trace in traces]
+            "request": request,
+            "traces": [trace.dict() for trace in traces]
         }
     )
 
 
-@app.get('/traces/{id}')
+@app.get("/traces/{id}")
 async def get_trace(
     id: int,
     db: Connection = Depends(get_connection),
@@ -123,10 +123,10 @@ async def get_trace(
         trace_id=id,
         repo=sqlite_trace_repo
     )
-    return RedirectResponse(url='/show')
+    return RedirectResponse(url="/show")
 
 
-@app.delete('/traces/{id}', status_code=204)
+@app.delete("/traces/{id}", status_code=204)
 async def delete_trace(
     id: int,
     db: Connection = Depends(get_connection),
@@ -136,7 +136,7 @@ async def delete_trace(
     sqlite_trace_repo.delete_trace_by_id(id)
 
 
-async def start_server():
-    config = uvicorn.Config(app, port=0, log_level='info')
+async def start_server(port: int = 0, host: str = "127.0.0.1"):
+    config = uvicorn.Config(app, port=port, log_level="info", host=host)
     server = uvicorn.Server(config)
     await server.serve()

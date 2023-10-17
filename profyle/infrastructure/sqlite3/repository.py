@@ -1,13 +1,16 @@
 from sqlite3 import Connection, Error, Row
-from typing import List, Optional
+from typing import Optional
 import json
 
 from profyle.domain.trace import Trace, TraceCreate
 from profyle.domain.trace_repository import TraceRepository
+from profyle.infrastructure.sqlite3.get_connection import get_connection
 
 
 class SQLiteTraceRepository(TraceRepository):
-    def __init__(self, db: Connection):
+    def __init__(self, db: Optional[Connection] = None):
+        if not db:
+            db = get_connection()
         self.db = db
 
     def create_trace_selected_table(self) -> None:
@@ -96,7 +99,7 @@ class SQLiteTraceRepository(TraceRepository):
         except Error as error:
             print("Failed to insert data into trace table", error)
 
-    def get_all_traces(self) -> List[Trace]:
+    def get_all_traces(self) -> list[Trace]:
         self.db.row_factory = Row
         cursor = self.db.cursor()
         cursor.execute(
@@ -123,7 +126,7 @@ class SQLiteTraceRepository(TraceRepository):
         cursor.execute(
             "SELECT trace_id FROM trace_selected where id = ?", (1,))
         trace = cursor.fetchone()
-        return trace['trace_id'] if trace else None
+        return trace["trace_id"] if trace else None
 
     def delete_trace_by_id(self, trace_id: int):
         cursor = self.db.cursor()

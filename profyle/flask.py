@@ -1,1 +1,1 @@
-from .infrastructure.middleware.flask import ProfyleMiddleware
+from profyle.infrastructure.middleware.flask import ProfyleMiddleware
