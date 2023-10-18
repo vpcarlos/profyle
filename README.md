@@ -7,7 +7,7 @@
 </p>
 
 ### Development tool for analysing and managing python traces
-
+[![Tests](https://github.com/vpcarlos/profyle/actions/workflows/test.yml/badge.svg)](https://github.com/vpcarlos/profyle/actions/workflows/test.yml)
 <a href="https://pypi.org/project/profyle" target="_blank">
     <img src="https://img.shields.io/pypi/v/profyle" alt="Package version">
 </a>
