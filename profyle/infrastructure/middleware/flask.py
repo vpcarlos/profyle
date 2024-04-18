@@ -2,6 +2,12 @@ from typing import Optional
 
 from profyle.application.profyle import profyle
 from profyle.domain.trace_repository import TraceRepository
+from profyle.infrastructure.middleware import (
+    PROFYLE_ENABLED,
+    PROFYLE_MAX_STACK_DEPTH,
+    PROFYLE_MIN_DURATION,
+    PROFYLE_PATTERN,
+)
 from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 
 
@@ -9,10 +15,10 @@ class ProfyleMiddleware:
     def __init__(
         self,
         app,
-        enabled: bool = True,
-        pattern: Optional[str] = None,
-        max_stack_depth: int = -1,
-        min_duration: int = 0,
+        enabled: bool = PROFYLE_ENABLED,
+        pattern: Optional[str] = PROFYLE_PATTERN,
+        max_stack_depth: int = PROFYLE_MAX_STACK_DEPTH,
+        min_duration: int = PROFYLE_MIN_DURATION,
         trace_repo: TraceRepository = SQLiteTraceRepository()
     ):
         self.app = app

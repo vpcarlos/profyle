@@ -1,5 +1,6 @@
-import pytest
 import asyncio
+
+import pytest
 
 from profyle.application.profyle import profyle
 from tests.unit.repository import InMemoryTraceRepository

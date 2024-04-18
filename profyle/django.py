@@ -1,0 +1,1 @@
+from profyle.infrastructure.middleware.django import ProfyleMiddleware # noqa

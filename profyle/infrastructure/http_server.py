@@ -1,19 +1,18 @@
 from sqlite3 import Connection
 
+import uvicorn
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
-import uvicorn
 
 from profyle.application.trace.create import create_trace_selected_table, create_trace_table
-from profyle.application.trace.get import get_all_traces, get_trace_selected, get_trace_by_id
+from profyle.application.trace.get import get_all_traces, get_trace_by_id, get_trace_selected
 from profyle.application.trace.store import store_trace_selected
 from profyle.infrastructure.sqlite3.get_connection import get_connection
 from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 from profyle.settings import settings
-
 
 app = FastAPI(
     title="Profyle",

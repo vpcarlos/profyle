@@ -1,4 +1,5 @@
-from typing import  Optional
+from typing import Optional
+
 from profyle.domain.trace import Trace
 from profyle.domain.trace_repository import TraceRepository
 

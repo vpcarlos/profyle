@@ -40,12 +40,12 @@ $ pip install profyle
 ### 1. Implement
 In order to track all your API requests you must implement the <code>ProfyleMiddleware</code>
 #### ProfyleMiddleware
-| Attribute | Required | Default | Description |
-| --- | --- | --- | --- |
-| `enabled` | No | `True` | Enable or disable Profyle |
-| `pattern` | No | `None` | 0nly trace those paths that match with pattern (<a href="https://en.wikipedia.org/wiki/Glob_(programming)" class="external-link" target="_blank">glob pattern</a>)  |
-| `max_stack_depth` | No | `-1` | Limit maximum stack trace depth |
-| `min_duration` | No | `0` (milisecons) | Only record traces with a greather duration than the limit. |
+| Attribute | Required | Default | Description | ENV Variable |
+| --- | --- | --- | --- | --- |
+| `enabled` | No | `True` | Enable or disable Profyle | `PROFYLE_ENABLED` |
+| `pattern` | No | `None` | 0nly trace those paths that match with pattern (<a href="https://en.wikipedia.org/wiki/Glob_(programming)"class="external-link" target="_blank">glob pattern</a>)  | `PROFYLE_PATTERN` |
+| `max_stack_depth` | No | `-1` | Limit maximum stack trace depth | `PROFYLE_MAX_STACK_DEPTH` |
+| `min_duration` | No | `0` (milisecons) | Only record traces with a greather duration than the limit. | `PROFYLE_MIN_DURATION` |
 
 
 <details markdown="1" open>
@@ -59,9 +59,9 @@ app = FastAPI()
 # Trace all requests
 app.add_middleware(ProfyleMiddleware)
 
-@app.get("/items/{item_id}")
-async def read_item(item_id: int):
-    return {"item_id": item_id}
+@app.get("/")
+async def root():
+    return {"hello": "world"}
 ```
 
 ```Python
@@ -69,18 +69,18 @@ from fastapi import FastAPI
 from profyle.fastapi import ProfyleMiddleware
 
 app = FastAPI()
-# Trace all requests that match that start with /api/products 
+# Trace all requests that match that start with /users 
 # with a minimum duration of 100ms and a maximum stack depth of 20
 app.add_middleware(
     ProfyleMiddleware,
-    pattern="/api/products*",
+    pattern="/users*",
     max_stack_depth=20,
     min_duration=100
 )
 
-@app.get("/items/{item_id}")
-async def read_item(item_id: int):
-    return {"item_id": item_id}
+@app.get("/users/{user_id}")
+async def get_user(user_id: int):
+    return {"hello": "user"}
 ```
 </details>
 
@@ -96,14 +96,23 @@ app = Flask(__name__)
 app.wsgi_app = ProfyleMiddleware(app.wsgi_app, pattern="*/api/products*")
 
 @app.route("/")
-def hello_world():
+def root():
     return "<p>Hello, World!</p>"
 ```
 </details>
 
 <details markdown="1">
 <summary>Django</summary>
-Soon..
+
+```Python
+# settings.py
+
+MIDDLEWARE = [
+    ...
+    "profyle.django.ProfyleMiddleware",
+    ...
+]
+```
 </details>
 
 ### 2. Run

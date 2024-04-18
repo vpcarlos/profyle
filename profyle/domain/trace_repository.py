@@ -5,7 +5,6 @@ from profyle.domain.trace import Trace, TraceCreate
 
 
 class TraceRepository(ABC):
-
     @abstractmethod
     def create_trace_selected_table(self) -> None:
         ...
@@ -16,6 +15,10 @@ class TraceRepository(ABC):
 
     @abstractmethod
     def delete_all_traces(self) -> int:
+        ...
+
+    @abstractmethod
+    def deleted_all_selected_traces(self) -> int:
         ...
 
     @abstractmethod

@@ -1,10 +1,11 @@
 
-import pytest
 import os
 
-from flask import Flask
+import pytest
 from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
+from flask import Flask
+
 
 @pytest.fixture
 def fastapi_app():
@@ -52,7 +53,7 @@ def flask_app():
     @app.route('/test-patch', methods=['PATCH'])
     def test_patch():
         return 'Test'
-    
+
     yield app
 
 @pytest.fixture

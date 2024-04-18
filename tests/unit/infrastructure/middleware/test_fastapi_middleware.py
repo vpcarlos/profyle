@@ -17,7 +17,8 @@ def test_should_trace_all_requests(fastapi_client, fastapi_app):
     assert trace_repo.traces[1].name == "GET /test?demo=true"
 
 
-def test_should_trace_filtered_requests(fastapi_client, fastapi_app):
+def test_should_trace_filtered_requests(monkeypatch, fastapi_client, fastapi_app):
+    monkeypatch.setenv("PROFYLE_PATTERN", "/test*")
     trace_repo = InMemoryTraceRepository()
     fastapi_app.add_middleware(
         ProfyleMiddleware,

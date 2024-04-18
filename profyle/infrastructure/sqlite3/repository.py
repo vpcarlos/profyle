@@ -1,6 +1,6 @@
+import json
 from sqlite3 import Connection, Error, Row
 from typing import Optional
-import json
 
 from profyle.domain.trace import Trace, TraceCreate
 from profyle.domain.trace_repository import TraceRepository
@@ -18,7 +18,7 @@ class SQLiteTraceRepository(TraceRepository):
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS trace_selected (
-                id INTEGER PRIMARY KEY NOT NULL,   
+                id INTEGER PRIMARY KEY NOT NULL,
                 trace_id INTEGER
             );
             """
@@ -28,9 +28,9 @@ class SQLiteTraceRepository(TraceRepository):
         cursor = self.db.cursor()
         cursor.execute(
             """
-            CREATE TABLE IF NOT EXISTS traces (  
-                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+            CREATE TABLE IF NOT EXISTS traces (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
                 data JSON NOT NULL,
                 duration REAL NOT NULL,
                 name VARCHAR(64) NOT NULL
@@ -43,6 +43,17 @@ class SQLiteTraceRepository(TraceRepository):
         cursor.execute(
             """
             DELETE FROM traces
+            """
+        )
+        self.db.commit()
+        cursor.close()
+        return cursor.rowcount
+
+    def deleted_all_selected_traces(self) -> int:
+        cursor = self.db.cursor()
+        cursor.execute(
+            """
+            DELETE FROM trace_selected
             """
         )
         self.db.commit()
@@ -63,7 +74,7 @@ class SQLiteTraceRepository(TraceRepository):
         try:
             self.create_trace_selected_table()
             cursor = self.db.cursor()
-            replace_query = """ 
+            replace_query = """
                     REPLACE INTO trace_selected
                     ( id, trace_id) VALUES (?, ?)
                 """
@@ -82,7 +93,7 @@ class SQLiteTraceRepository(TraceRepository):
             self.create_trace_table()
             cursor = self.db.cursor()
 
-            insert_query = """ 
+            insert_query = """
                 INSERT INTO traces
                 ( data, duration, name) VALUES (?, ?, ?)
             """
@@ -102,8 +113,12 @@ class SQLiteTraceRepository(TraceRepository):
     def get_all_traces(self) -> list[Trace]:
         self.db.row_factory = Row
         cursor = self.db.cursor()
-        cursor.execute(
-            "SELECT id, timestamp, duration, name FROM traces ORDER BY timestamp DESC")
+        cursor.execute("""
+            SELECT
+            id, timestamp, duration, name
+            FROM traces
+            ORDER BY timestamp DESC
+        """)
 
         traces = cursor.fetchall()
 

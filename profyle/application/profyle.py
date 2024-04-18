@@ -1,15 +1,15 @@
 import fnmatch
 import json
 import re
-from typing import Optional
 from dataclasses import dataclass
 from tempfile import NamedTemporaryFile
+from typing import Optional
 
 from viztracer import VizTracer
 
 from profyle.application.trace.store import store_trace
-from profyle.domain.trace_repository import TraceRepository
 from profyle.domain.trace import TraceCreate
+from profyle.domain.trace_repository import TraceRepository
 
 
 @dataclass
@@ -31,7 +31,8 @@ class profyle:
                 log_async=True,
                 file_info=True,
                 min_duration=self.min_duration,
-                max_stack_depth=self.max_stack_depth
+                max_stack_depth=self.max_stack_depth,
+                verbose=0
             )
             self.tracer.start()
 

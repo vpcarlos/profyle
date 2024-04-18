@@ -1,11 +1,10 @@
+import json
+import time
 from typing import Optional
 from uuid import uuid4
-import time
-import json
 
-from profyle.domain.trace import TraceCreate
+from profyle.domain.trace import Trace, TraceCreate
 from profyle.domain.trace_repository import TraceRepository
-from profyle.domain.trace import Trace
 
 
 class InMemoryTraceRepository(TraceRepository):
@@ -17,6 +16,9 @@ class InMemoryTraceRepository(TraceRepository):
         ...
 
     def create_trace_table(self) -> None:
+        ...
+
+    def deleted_all_selected_traces(self) -> int:
         ...
 
     def delete_all_traces(self) -> int:
@@ -31,11 +33,10 @@ class InMemoryTraceRepository(TraceRepository):
         self.selected_trace = trace_id
 
     def store_trace(self, new_trace: TraceCreate) -> None:
-
         trace = Trace(
             id=uuid4().int,
             timestamp=str(time.time()),
-            data=  json.dumps(new_trace.data),
+            data=json.dumps(new_trace.data),
             duration=new_trace.duration,
             name=new_trace.name,
         )
