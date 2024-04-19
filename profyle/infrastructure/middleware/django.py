@@ -16,14 +16,8 @@ class ProfyleMiddleware:
     def __init__(self, get_response: Callable):
         self.get_response = get_response
         self.enabled: bool = get_setting("PROFYLE_ENABLED", True)
-        self.pattern: Optional[str] = get_setting(
-            "PROFYLE_PATTERN",
-            None
-        )
-        self.max_stack_depth: int = get_setting(
-            "PROFYLE_MAX_STACK_DEPTH",
-            -1
-        )
+        self.pattern: Optional[str] = get_setting("PROFYLE_PATTERN", None)
+        self.max_stack_depth: int = get_setting("PROFYLE_MAX_STACK_DEPTH", -1)
         self.min_duration: int = get_setting("MIN_DURATION", 0)
         self.trace_repo: TraceRepository = SQLiteTraceRepository()
 
@@ -38,6 +32,6 @@ class ProfyleMiddleware:
                 pattern=self.pattern,
                 repo=self.trace_repo,
                 max_stack_depth=self.max_stack_depth,
-                min_duration=self.min_duration
+                min_duration=self.min_duration,
             ):
                 return self.get_response(request)

@@ -1,13 +1,8 @@
+import os
 from typing import Optional
 
 from profyle.application.profyle import profyle
 from profyle.domain.trace_repository import TraceRepository
-from profyle.infrastructure.middleware import (
-    PROFYLE_ENABLED,
-    PROFYLE_MAX_STACK_DEPTH,
-    PROFYLE_MIN_DURATION,
-    PROFYLE_PATTERN,
-)
 from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 
 
@@ -15,18 +10,25 @@ class ProfyleMiddleware:
     def __init__(
         self,
         app,
-        enabled: bool = PROFYLE_ENABLED,
-        pattern: Optional[str] = PROFYLE_PATTERN,
-        max_stack_depth: int = PROFYLE_MAX_STACK_DEPTH,
-        min_duration: int = PROFYLE_MIN_DURATION,
+        enabled: bool = True,
+        pattern: Optional[str] = None,
+        max_stack_depth: int = -1,
+        min_duration: int = 0,
         trace_repo: TraceRepository = SQLiteTraceRepository()
     ):
         self.app = app
-        self.enabled = enabled
-        self.pattern = pattern
-        self.max_stack_depth = max_stack_depth
-        self.min_duration = min_duration
         self.trace_repo = trace_repo
+
+        PROFYLE_ENABLED = os.getenv("PROFYLE_ENABLED", "")
+        PROFYLE_PATTERN = os.getenv("PROFYLE_PATTERN")
+        PROFYLE_MAX_STACK_DEPTH = os.getenv("PROFYLE_MAX_STACK_DEPTH")
+        PROFYLE_MIN_DURATION = os.getenv("PROFYLE_MIN_DURATION")
+
+        self.enabled = PROFYLE_ENABLED.lower() == "true" or enabled
+        self.pattern = PROFYLE_PATTERN or pattern
+        self.max_stack_depth = int(PROFYLE_MAX_STACK_DEPTH or max_stack_depth)
+        self.min_duration = int(PROFYLE_MIN_DURATION or min_duration)
+
 
     def __call__(self, environ, start_response):
         if environ.get("wsgi.url_scheme") == "http" and self.enabled:
