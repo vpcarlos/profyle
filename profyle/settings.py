@@ -1,10 +1,9 @@
 import os
 
 import viztracer
-from pydantic_settings import BaseSettings
 
 
-class Settings(BaseSettings):
+class Settings:
     app_name: str = "Profyle"
     project_dir: str = os.path.normpath(
         os.path.join(

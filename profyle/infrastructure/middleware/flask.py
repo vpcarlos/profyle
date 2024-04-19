@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 
 from profyle.application.profyle import profyle
 from profyle.domain.trace_repository import TraceRepository
@@ -11,7 +10,7 @@ class ProfyleMiddleware:
         self,
         app,
         enabled: bool = True,
-        pattern: Optional[str] = None,
+        pattern: str|None = None,
         max_stack_depth: int = -1,
         min_duration: int = 0,
         trace_repo: TraceRepository = SQLiteTraceRepository()

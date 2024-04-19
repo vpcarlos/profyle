@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from django.conf import settings
 from django.http import HttpRequest
@@ -8,7 +8,7 @@ from profyle.domain.trace_repository import TraceRepository
 from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 
 
-def get_setting(name, default=None) -> Any:
+def get_setting(name: str, default: Any|None = None) -> Any:
     return getattr(settings, name, default)
 
 
@@ -16,7 +16,7 @@ class ProfyleMiddleware:
     def __init__(self, get_response: Callable):
         self.get_response = get_response
         self.enabled: bool = get_setting("PROFYLE_ENABLED", True)
-        self.pattern: Optional[str] = get_setting("PROFYLE_PATTERN", None)
+        self.pattern: str|None = get_setting("PROFYLE_PATTERN", None)
         self.max_stack_depth: int = get_setting("PROFYLE_MAX_STACK_DEPTH", -1)
         self.min_duration: int = get_setting("MIN_DURATION", 0)
         self.trace_repo: TraceRepository = SQLiteTraceRepository()

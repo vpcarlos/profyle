@@ -1,6 +1,5 @@
 import json
 from sqlite3 import Connection, Error, Row
-from typing import Optional
 
 from profyle.domain.trace import Trace, TraceCreate
 from profyle.domain.trace_repository import TraceRepository
@@ -8,7 +7,7 @@ from profyle.infrastructure.sqlite3.get_connection import get_connection
 
 
 class SQLiteTraceRepository(TraceRepository):
-    def __init__(self, db: Optional[Connection] = None):
+    def __init__(self, db: Connection | None = None):
         if not db:
             db = get_connection()
         self.db = db
@@ -38,6 +37,74 @@ class SQLiteTraceRepository(TraceRepository):
             """
         )
 
+    def create_trace_file_table(self) -> None:
+        cursor = self.db.cursor()
+        # trace_id is a foreign key to the traces table
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS trace_files (
+                trace_id VARCHAR(64) PRIMARY KEY NOT NULL,
+                FOREIGN KEY (trace_id) REFERENCES traces(id),
+                path VARCHAR(400) NOT NULL,
+                source_code TEXT NOT NULL,
+                line_count INTEGER NOT NULL,
+            );
+            """
+        )
+        self.db.commit()
+        cursor.close()
+
+    def create_trace_function_table(self) -> None:
+        cursor = self.db.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS trace_functions (
+                trace_id VARCHAR(64) PRIMARY KEY NOT NULL,
+                FOREIGN KEY (trace_id) REFERENCES traces(id),
+                name VARCHAR(400) NOT NULL,
+                file_path VARCHAR(400) NOT NULL,
+                line_number INTEGER NOT NULL,
+            );
+            """
+        )
+        self.db.commit()
+        cursor.close()
+
+    def create_trace_event_table(self) -> None:
+        cursor = self.db.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS trace_events (
+                trace_id VARCHAR(64) PRIMARY KEY NOT NULL,
+                FOREIGN KEY (trace_id) REFERENCES traces(id),
+                phase_type VARCHAR(10) NOT NULL,
+                process_id INTEGER NOT NULL,
+                thread_id INTEGER NOT NULL,
+                timestamp REAL NOT NULL,
+                duration REAL NOT NULL,
+                name VARCHAR(400) NOT NULL,
+                args TEXT NOT NULL,
+                category VARCHAR(400) NOT NULL,
+            );
+            """
+        )
+        self.db.commit()
+        cursor.close()
+
+    def create_trace_metadata_table(self) -> None:
+        cursor = self.db.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS trace_metadata (
+                trace_id VARCHAR(64) PRIMARY KEY NOT NULL,
+                FOREIGN KEY (trace_id) REFERENCES traces(id),
+                metadata TEXT NOT NULL,
+            );
+            """
+        )
+        self.db.commit()
+        cursor.close()
+
     def delete_all_traces(self) -> int:
         cursor = self.db.cursor()
         cursor.execute(
@@ -54,6 +121,50 @@ class SQLiteTraceRepository(TraceRepository):
         cursor.execute(
             """
             DELETE FROM trace_selected
+            """
+        )
+        self.db.commit()
+        cursor.close()
+        return cursor.rowcount
+
+    def delete_all_trace_files(self) -> int:
+        cursor = self.db.cursor()
+        cursor.execute(
+            """
+            DELETE FROM trace_files
+            """
+        )
+        self.db.commit()
+        cursor.close()
+        return cursor.rowcount
+
+    def delete_all_trace_functions(self) -> int:
+        cursor = self.db.cursor()
+        cursor.execute(
+            """
+            DELETE FROM trace_functions
+            """
+        )
+        self.db.commit()
+        cursor.close()
+        return cursor.rowcount
+
+    def delete_all_trace_events(self) -> int:
+        cursor = self.db.cursor()
+        cursor.execute(
+            """
+            DELETE FROM trace_events
+            """
+        )
+        self.db.commit()
+        cursor.close()
+        return cursor.rowcount
+
+    def delete_all_trace_metadata(self) -> int:
+        cursor = self.db.cursor()
+        cursor.execute(
+            """
+            DELETE FROM trace_metadata
             """
         )
         self.db.commit()
@@ -78,10 +189,7 @@ class SQLiteTraceRepository(TraceRepository):
                     REPLACE INTO trace_selected
                     ( id, trace_id) VALUES (?, ?)
                 """
-            data_tuple = (
-                1,
-                trace_id
-            )
+            data_tuple = (1, trace_id)
             cursor.execute(replace_query, data_tuple)
             self.db.commit()
             cursor.close()
@@ -122,24 +230,23 @@ class SQLiteTraceRepository(TraceRepository):
 
         traces = cursor.fetchall()
 
-        return [
-            Trace(**dict(trace))
-            for trace in traces
-        ]
+        return [Trace(**dict(trace)) for trace in traces]
 
-    def get_trace_by_id(self, id: int) -> Optional[Trace]:
+    def get_trace_by_id(self, id: int) -> Trace|None:
         self.db.row_factory = Row
         cursor = self.db.cursor()
         cursor.execute("SELECT * FROM traces where id = ?", (id,))
         trace = cursor.fetchone()
         if trace:
-            return Trace(**dict(trace))
+            trace_dict = dict(trace)
+            if isinstance(trace_dict.get("data"), str):
+                trace_dict["data"] = json.loads(trace_dict["data"])
+            return Trace(**trace_dict)
 
-    def get_trace_selected(self) -> Optional[int]:
+    def get_trace_selected(self) -> int|None:
         self.db.row_factory = Row
         cursor = self.db.cursor()
-        cursor.execute(
-            "SELECT trace_id FROM trace_selected where id = ?", (1,))
+        cursor.execute("SELECT trace_id FROM trace_selected where id = ?", (1,))
         trace = cursor.fetchone()
         return trace["trace_id"] if trace else None
 
@@ -149,7 +256,7 @@ class SQLiteTraceRepository(TraceRepository):
             """
             DELETE FROM traces WHERE id = ?
             """,
-            (trace_id,)
+            (trace_id,),
         )
         self.db.commit()
         cursor.close()
