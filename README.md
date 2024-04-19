@@ -43,7 +43,7 @@ In order to track all your API requests you must implement the <code>ProfyleMidd
 | Attribute | Required | Default | Description | ENV Variable |
 | --- | --- | --- | --- | --- |
 | `enabled` | No | `True` | Enable or disable Profyle | `PROFYLE_ENABLED` |
-| `pattern` | No | `None` | 0nly trace those paths that match with pattern (<a href="https://en.wikipedia.org/wiki/Glob_(programming)"class="external-link" target="_blank">glob pattern</a>)  | `PROFYLE_PATTERN` |
+| `pattern` | No | `None` | 0nly trace those paths that match with [pattern](https://en.wikipedia.org/wiki/Glob_(programming))  | `PROFYLE_PATTERN` |
 | `max_stack_depth` | No | `-1` | Limit maximum stack trace depth | `PROFYLE_MAX_STACK_DEPTH` |
 | `min_duration` | No | `0` (milisecons) | Only record traces with a greather duration than the limit. | `PROFYLE_MIN_DURATION` |
 
