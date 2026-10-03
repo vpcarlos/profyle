@@ -7,13 +7,21 @@ Middlewares create one per request through `Integration.tracer`, with
 `store_in_background=True`: turning the tracer's buffer into a trace and writing it to
 the database can take a moment on big traces, and the request should not wait for it.
 
-VizTracer records one trace per process at a time, so a request that arrives while
-another one is traced is served untraced (`on_busy` is called); so is one that arrives
-while MAX_PENDING traces are still being stored, which bounds the memory they hold.
-Storing runs in threads named "profyle-store", whose events are left out of traces
-(Python 3.12+ traces every thread).
+One trace at a time: VizTracer records one trace per process, and a trace being stored
+must not overlap with the next one (Python 3.12+ traces every thread, so the storing
+would be traced and slowed down). A request that arrives while another one is traced is
+served untraced (`on_busy` is called). One that arrives while the previous trace is
+being stored waits for it, up to `wait_for_storing` seconds; async middlewares wait in a
+worker thread (`storing_in_progress`, `wait_until_stored`) so the event loop is not
+blocked.
+
+A trace can be suspended and resumed: the WSGI middleware traces the app call and then
+each chunk of a streamed body, with the tracer stopped in between. A suspended trace
+that nobody resumes (a client that never reads the body) is finished by the next request
+that wants to be traced, or when the process exits, so it never blocks tracing.
 """
 
+import atexit
 import fnmatch
 import functools
 import re
@@ -28,20 +36,32 @@ from profyle.application.requests.capture import redact
 from profyle.domain.trace import NewTrace, RecordedRequest
 from profyle.domain.trace_repository import TraceRepository
 
-MAX_PENDING = 2
 STORE_THREAD = "profyle-store"
 
+# What a RequestTrace is doing.
+NOT_TRACED, RUNNING, SUSPENDED, FINISHED = "not traced", "running", "suspended", "finished"
+
 _state = threading.Condition()
-# A request is being traced (its tracer may still be starting or stopping).
-_tracing = False
-# Traces started and not stored yet (including the one being traced).
-_pending = 0
+# The trace that owns the tracer (running or suspended).
+_owner: "RequestTrace | None" = None
+# Traces being stored.
+_storing = 0
 # The running tracer, for code that hooks it into other threads (see threadpool).
 _active_tracer: VizTracer | None = None
 
 
 def active_tracer() -> VizTracer | None:
     return _active_tracer
+
+
+def storing_in_progress() -> bool:
+    return _storing > 0
+
+
+def wait_until_stored(timeout: float = 30) -> bool:
+    """Wait until no trace is being stored; False on timeout."""
+    with _state:
+        return _state.wait_for(lambda: _storing == 0, timeout)
 
 
 @dataclass
@@ -64,9 +84,12 @@ class RequestTrace:
     on_busy: Callable[[], None] | None = None
     # Keep credentials in the recorded request instead of redacting them.
     capture_secrets: bool = False
-    # Store the trace in a background thread instead of before __exit__ returns.
+    # Store the trace in a background thread instead of before finish() returns.
     store_in_background: bool = False
+    # How long start() waits for the previous trace to be stored.
+    wait_for_storing: float = 0
     tracer: VizTracer | None = None
+    phase: str = NOT_TRACED
 
     def should_trace(self) -> bool:
         if not self.pattern:
@@ -74,20 +97,32 @@ class RequestTrace:
         return _glob(self.pattern).match(self.path or self.name) is not None
 
     def __enter__(self) -> "RequestTrace":
-        global _active_tracer, _tracing, _pending
+        self.start()
+        return self
+
+    def __exit__(self, *exc_info) -> None:
+        self.finish()
+
+    def start(self) -> None:
+        global _owner, _active_tracer
         if not self.should_trace():
-            return self
+            return
         with _state:
-            # A second tracer started while a concurrent request is traced would
-            # corrupt both traces.
-            busy = _tracing or _pending >= MAX_PENDING
+            # The owner is suspended: nobody is reading its body anymore.
+            abandoned = _owner if _owner is not None and _owner.phase == SUSPENDED else None
+            if abandoned:
+                abandoned._release()
+        if abandoned:
+            abandoned._store_after_stop(background=False)
+        with _state:
+            _state.wait_for(lambda: _storing == 0, self.wait_for_storing)
+            busy = _owner is not None or _storing > 0
             if not busy:
-                _tracing = True
-                _pending += 1
+                self.phase, _owner = RUNNING, self
         if busy:
             if self.on_busy:
                 self.on_busy()
-            return self
+            return
         self.tracer = VizTracer(
             log_func_args=True,
             log_print=True,
@@ -100,16 +135,48 @@ class RequestTrace:
         )
         self.tracer.start()
         _active_tracer = self.tracer
-        return self
 
-    def __exit__(self, *exc_info) -> None:
-        global _active_tracer, _tracing
-        if self.tracer is None:  # not traced: filtered out, or another request was
+    def suspend(self) -> None:
+        """Stop the tracer but keep the trace open (and the tracer)."""
+        global _active_tracer
+        if self.phase != RUNNING:
             return
         _active_tracer = None
         self.tracer.stop()
         with _state:
-            _tracing = False
+            self.phase = SUSPENDED
+
+    def resume(self) -> bool:
+        """Restart a suspended trace; False if it is not suspended (or was finished)."""
+        global _active_tracer
+        with _state:
+            if self.phase != SUSPENDED:
+                return False
+            self.phase = RUNNING
+        self.tracer.start()
+        _active_tracer = self.tracer
+        return True
+
+    def finish(self, background: bool | None = None) -> None:
+        """Stop tracing and store the trace."""
+        global _active_tracer
+        with _state:
+            was = self.phase
+            if was not in (RUNNING, SUSPENDED):  # not traced, or already finished
+                return
+            self._release()
+        if was == RUNNING:
+            _active_tracer = None
+            self.tracer.stop()
+        self._store_after_stop(background)
+
+    def _release(self) -> None:
+        """Give up the tracer; the trace now counts as being stored. Holds _state."""
+        global _owner, _storing
+        self.phase, _owner = FINISHED, None
+        _storing += 1
+
+    def _store_after_stop(self, background: bool | None = None) -> None:
         try:
             request = self.request() if callable(self.request) else self.request
             if request is not None and not self.capture_secrets:
@@ -117,7 +184,7 @@ class RequestTrace:
         except Exception:
             _stored()
             raise
-        if self.store_in_background:
+        if self.store_in_background if background is None else background:
             # Not a daemon thread: a server shutting down waits for its last traces.
             threading.Thread(target=self._store, args=(request,), name=STORE_THREAD).start()
         else:
@@ -137,34 +204,25 @@ class RequestTrace:
 
 
 def _stored() -> None:
-    global _pending
+    global _storing
     with _state:
-        _pending -= 1
+        _storing -= 1
         _state.notify_all()
 
 
-def wait_until_stored(timeout: float = 30) -> bool:
-    """Wait until every started trace is stored (for tests and scripts)."""
-    with _state:
-        return _state.wait_for(lambda: _pending == 0, timeout)
+@atexit.register
+def _finish_abandoned_trace() -> None:
+    """Store a suspended trace nobody finished (threads cannot start at exit)."""
+    owner = _owner
+    if owner is not None and owner.phase == SUSPENDED:
+        owner.finish(background=False)
 
 
 def _trace_json(tracer: VizTracer) -> dict:
     tracer.parse()
     report = ReportBuilder(tracer.data, verbose=0)
     report.prepare_json(file_info=True)
-    trace = report.combined_json
-    # Leave out Profyle storing earlier traces in the background.
-    storing = {
-        (event.get("pid"), event.get("tid"))
-        for event in trace.get("traceEvents", [])
-        if event.get("ph") == "M" and (event.get("args") or {}).get("name") == STORE_THREAD
-    }
-    if storing:
-        trace["traceEvents"] = [
-            e for e in trace["traceEvents"] if (e.get("pid"), e.get("tid")) not in storing
-        ]
-    return trace
+    return report.combined_json
 
 
 @functools.cache

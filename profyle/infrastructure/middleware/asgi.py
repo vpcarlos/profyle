@@ -63,7 +63,8 @@ class ProfyleMiddleware(Middleware):
             path = f"{path}?{query_string}"
 
         exchange = _ExchangeRecorder(scope, receive, send)
-        with self.integration.tracer(method, path) as trace:
+        await self.integration.wait_for_storing()
+        with self.integration.tracer(method, path, wait_for_storing=0) as trace:
             try:
                 await self.app(scope, exchange.receive, exchange.send)
             finally:

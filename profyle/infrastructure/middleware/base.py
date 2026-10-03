@@ -1,11 +1,16 @@
 """What every integration (ASGI, WSGI, Django, Tornado, `profyle run`) shares."""
 
+import asyncio
 import os
 import sys
 import time
 from importlib.metadata import PackageNotFoundError, version
 
-from profyle.application.request_trace import RequestTrace
+from profyle.application.request_trace import (
+    RequestTrace,
+    storing_in_progress,
+    wait_until_stored,
+)
 from profyle.config import load_config
 from profyle.domain.trace_repository import TraceRepository
 from profyle.infrastructure.middleware.threadpool import trace_worker_threads
@@ -17,6 +22,9 @@ PROFYLE_RUN = "profyle run"
 # Traces are stored after the response, in a background thread (tests turn this off to
 # read traces right after a request).
 STORE_IN_BACKGROUND = True
+# How long a request waits for the previous trace to be stored before it is served
+# untraced (see request_trace).
+STORE_WAIT = 5.0
 
 # Marks a request as traced (in the ASGI scope, WSGI environ or Django META) so nested
 # integrations, e.g. an explicit middleware plus `profyle run`, trace it only once.
@@ -55,7 +63,7 @@ class Integration:
     def repo(self, repo: TraceRepository) -> None:
         self._repo = repo
 
-    def tracer(self, method: str, path: str) -> RequestTrace:
+    def tracer(self, method: str, path: str, wait_for_storing: float = STORE_WAIT) -> RequestTrace:
         """The tracer of one request; `path` includes the query string."""
         if not self._registered:
             self.register()
@@ -71,7 +79,14 @@ class Integration:
             on_busy=lambda: self._say_busy(name),
             store_in_background=STORE_IN_BACKGROUND,
             capture_secrets=self.config.capture_secrets,
+            wait_for_storing=wait_for_storing,
         )
+
+    async def wait_for_storing(self) -> None:
+        """For async frameworks: wait for the previous trace to be stored in a worker
+        thread, so the event loop keeps serving other requests meanwhile."""
+        if self.config.enabled and storing_in_progress():
+            await asyncio.to_thread(wait_until_stored, STORE_WAIT)
 
     def _say_busy(self, name: str) -> None:
         if self.config.console:

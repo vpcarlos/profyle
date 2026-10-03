@@ -87,7 +87,11 @@ def call_wsgi(middleware, **environ):
         "wsgi.input": io.BytesIO(b""),
     }
     base.update(environ)
-    return middleware(base, lambda status, headers: None)
+    # Like a WSGI server: send the whole body, then close it.
+    body = middleware(base, lambda status, headers: None)
+    sent = b"".join(body)
+    body.close()
+    return sent
 
 
 def test_wsgi_body_limits_and_host_fallback():

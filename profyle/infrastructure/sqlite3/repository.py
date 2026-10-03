@@ -2,7 +2,7 @@ import json
 from sqlite3 import Connection, Error, Row
 from typing import Any
 
-from profyle.domain.trace import NewTrace, RecordedRequest, Trace
+from profyle.domain.trace import NewTrace, Trace
 from profyle.domain.trace_repository import TraceRepository
 from profyle.infrastructure.sqlite3.get_connection import get_connection
 
@@ -105,12 +105,6 @@ class SQLiteTraceRepository(TraceRepository):
 
     def latest_trace_id(self) -> int:
         return self._query("SELECT COALESCE(MAX(id), 0) AS id FROM traces")[0]["id"]
-
-    def update_request(self, trace_id: int, request: RecordedRequest) -> None:
-        self._change(
-            "UPDATE traces SET request = ? WHERE id = ?",
-            (request.model_dump_json(), trace_id),
-        )
 
     def delete_trace(self, trace_id: int) -> None:
         self._change("DELETE FROM traces WHERE id = ?", (trace_id,))

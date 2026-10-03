@@ -84,11 +84,11 @@ compare_traces  ←  replay the same request  ←  code change
 - One trace at a time per process: concurrent requests are not traced while another one
   is, and work from overlapping requests on the same thread appears in the running
   trace. Filtering events by asyncio task would isolate async requests.
-- WSGI (Flask, Django under WSGI): the trace ends when the app returns its response,
-  before the body is sent, so work done while streaming a generator body is not traced,
-  and Flask traces get their response fingerprint from the first replay. Extending the
-  trace over the body needs a safe way to end it when a test client never reads or
-  closes the body (ending it from `__del__` crashes VizTracer).
+- A WSGI response body that is never read (some test clients) keeps its trace open
+  until the next traced request or the process exits; that trace is then stored
+  without the body's work and without a response fingerprint.
+- Django's own middleware (`profyle run`, `profyle.django`) ends the trace when the view
+  returns, so a `StreamingHttpResponse` is traced up to the start of the stream.
 - During development the test suite crashed twice at interpreter shutdown (fatal error
   after all tests passed) in ~30 runs, and never again in ~355 later runs, including 100
   in parallel. The suspected cause is threads still hooked to a tracer during shutdown;

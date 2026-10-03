@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from profyle.domain.trace import NewTrace, RecordedRequest, Trace
+from profyle.domain.trace import NewTrace, Trace
 
 
 class TraceRepository(ABC):
@@ -28,9 +28,6 @@ class TraceRepository(ABC):
     @abstractmethod
     def latest_trace_id(self) -> int:
         """0 when there are no traces."""
-
-    @abstractmethod
-    def update_request(self, trace_id: int, request: RecordedRequest) -> None: ...
 
     @abstractmethod
     def delete_trace(self, trace_id: int) -> None: ...

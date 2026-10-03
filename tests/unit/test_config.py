@@ -79,11 +79,11 @@ def test_credentials_are_redacted_unless_capture_secrets_is_on(project, monkeypa
     app.get("/me")(lambda: "ok")
     repo = InMemoryTraceRepository()
     app.wsgi_app = ProfyleMiddleware(app.wsgi_app, trace_repo=repo, console=False)
-    app.test_client().get("/me", headers={"Authorization": "Bearer secret"})
+    app.test_client().get("/me", headers={"Authorization": "Bearer secret"}).get_data()
 
     (project / "pyproject.toml").write_text("[tool.profyle]\ncapture-secrets = true\n")
     app.wsgi_app = ProfyleMiddleware(app.wsgi_app.app, trace_repo=repo, console=False)
-    app.test_client().get("/me", headers={"Authorization": "Bearer secret"})
+    app.test_client().get("/me", headers={"Authorization": "Bearer secret"}).get_data()
 
     redacted, kept = (t.request.headers["authorization"] for t in repo.traces)
     assert (redacted, kept) == ("[redacted]", "Bearer secret")

@@ -3,6 +3,8 @@
 import io
 
 from profyle.application.requests.capture import MAX_BODY_BYTES, build_recorded_request
+from profyle.application.requests.fingerprint import MAX_FINGERPRINT_BYTES, fingerprint
+from profyle.domain.trace import RecordedRequest
 from profyle.domain.trace_repository import TraceRepository
 from profyle.infrastructure.middleware.base import MIDDLEWARE, TRACED, Integration, Middleware
 
@@ -43,30 +45,105 @@ class ProfyleMiddleware(Middleware):
         if not self.integration.config.enabled or environ.get(TRACED):
             return self.app(environ, start_response)
         environ[TRACED] = True
-        method = environ.get("REQUEST_METHOD", "").upper()
-        path = environ.get("REQUEST_URI") or _path(environ)
-        body, body_truncated = _read_body(environ)
-        status_code: int | None = None
+        exchange = _Exchange(environ)
+        trace = self.integration.tracer(exchange.method, exchange.path)
+        trace.request = exchange.recorded_request
+        trace.start()
+        try:
+            body = self.app(environ, exchange.capture(start_response))
+        except BaseException:
+            trace.finish()
+            raise
+        # The body may still do work while it is sent (a generator streaming a
+        # response): trace each chunk, with the tracer stopped in between.
+        trace.suspend()
+        return _TracedBody(body, exchange, trace)
 
+
+class _Exchange:
+    """What is kept of a request and its response: enough to replay the request and to
+    check later that a change did not alter the response."""
+
+    def __init__(self, environ):
+        self.environ = environ
+        self.method = environ.get("REQUEST_METHOD", "").upper()
+        self.path = environ.get("REQUEST_URI") or _path(environ)
+        self.body, self.body_truncated = _read_body(environ)
+        self.status_code: int | None = None
+        self.content_type: str | None = None
+        self.response_body = bytearray()
+        self.response_complete = False
+        self.response_too_large = False
+
+    def capture(self, start_response):
         def start_response_and_capture(status, headers, *args):
-            nonlocal status_code
-            status_code = int(status.split(" ", 1)[0])
+            self.status_code = int(status.split(" ", 1)[0])
+            self.content_type = next(
+                (value for name, value in headers if name.lower() == "content-type"), None
+            )
             return start_response(status, headers, *args)
 
-        with self.integration.tracer(method, path) as trace:
+        return start_response_and_capture
+
+    def add_response_chunk(self, chunk: bytes) -> None:
+        if self.response_too_large:
+            return
+        self.response_body.extend(chunk)
+        if len(self.response_body) > MAX_FINGERPRINT_BYTES:
+            self.response_too_large = True
+            self.response_body.clear()
+
+    def recorded_request(self) -> RecordedRequest:
+        environ = self.environ
+        request = build_recorded_request(
+            method=self.method,
+            path=self.path,
+            scheme=environ.get("wsgi.url_scheme", "http"),
+            host=environ.get("HTTP_HOST") or _server_host(environ),
+            headers=_headers(environ),
+            body=self.body,
+            body_truncated=self.body_truncated,
+            status_code=self.status_code,
+        )
+        # A body that was not sent entirely (client gone, never read) has no fingerprint.
+        if self.response_complete and not self.response_too_large:
+            request.response = fingerprint(bytes(self.response_body), self.content_type)
+        return request
+
+
+class _TracedBody:
+    """The app's response body, passed through to the server. Producing each chunk is
+    traced; the trace is finished once the body is sent or closed."""
+
+    def __init__(self, body, exchange: _Exchange, trace):
+        self._body = body
+        self._exchange = exchange
+        self._trace = trace
+
+    def __iter__(self):
+        chunks = iter(self._body)
+        while True:
+            resumed = self._trace.resume()
             try:
-                return self.app(environ, start_response_and_capture)
+                chunk = next(chunks)
+            except StopIteration:
+                self._exchange.response_complete = True
+                break
             finally:
-                trace.request = lambda: build_recorded_request(
-                    method=method,
-                    path=path,
-                    scheme=environ.get("wsgi.url_scheme", "http"),
-                    host=environ.get("HTTP_HOST") or _server_host(environ),
-                    headers=_headers(environ),
-                    body=body,
-                    body_truncated=body_truncated,
-                    status_code=status_code,
-                )
+                if resumed:
+                    self._trace.suspend()
+            self._exchange.add_response_chunk(chunk)
+            yield chunk
+        self._trace.finish()
+
+    def close(self) -> None:
+        resumed = self._trace.resume()
+        try:
+            if hasattr(self._body, "close"):
+                self._body.close()
+        finally:
+            if resumed:
+                self._trace.finish()
 
 
 def _path(environ) -> str:

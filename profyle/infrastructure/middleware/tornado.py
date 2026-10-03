@@ -87,7 +87,8 @@ def _patch_request_handler() -> None:
             return await _original_execute(self, transforms, *args, **kwargs)
         request = self.request
         self._profyle_response = []
-        with integration.tracer(request.method, request.uri) as trace:
+        await integration.wait_for_storing()
+        with integration.tracer(request.method, request.uri, wait_for_storing=0) as trace:
             try:
                 return await _original_execute(self, transforms, *args, **kwargs)
             finally:

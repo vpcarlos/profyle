@@ -199,7 +199,9 @@ one is being traced is served normally but not traced (the console says so), and
 done by overlapping requests on the same thread can show up in the trace being
 recorded. Profyle is meant for requests you make one at a time while developing.
 Traces are saved in a background thread after the response is sent, so the request
-does not wait for it.
+does not wait for it; a request arriving while the previous trace is still being saved
+waits a moment for it. WSGI apps are traced until the response body has been sent, so
+streamed responses are traced too.
 
 ## Configuration
 Every integration reads the same settings. Each one comes from, in order of priority:

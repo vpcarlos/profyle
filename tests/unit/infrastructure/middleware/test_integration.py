@@ -62,7 +62,7 @@ def test_wsgi_traces_https_requests():
     repo = InMemoryTraceRepository()
     app.wsgi_app = WSGIMiddleware(app.wsgi_app, trace_repo=repo)
 
-    app.test_client().get("/secure", base_url="https://localhost")
+    app.test_client().get("/secure", base_url="https://localhost").get_data()
 
     assert [t.name for t in repo.traces] == ["GET /secure"]
     assert repo.traces[0].request.base_url == "https://localhost"

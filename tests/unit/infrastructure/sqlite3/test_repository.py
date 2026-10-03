@@ -69,10 +69,6 @@ def test_request_update_runtime_and_cleanup(tmp_path):
     trace_id = repo.add_trace(NewTrace(raw_trace={"traceEvents": []}, name="GET /a"))
     repo.add_trace(NewTrace(raw_trace={"traceEvents": []}, name="GET /b"))
 
-    request = RecordedRequest(method="GET", path="/a", base_url="http://localhost")
-    repo.update_request(trace_id, request)
-    assert repo.get_trace(trace_id).request == request
-
     assert repo.get_runtime() is None
     repo.store_runtime({"pid": 1})
     assert repo.get_runtime() == {"pid": 1}

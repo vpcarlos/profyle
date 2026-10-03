@@ -54,12 +54,7 @@ def replay_trace(
         if response.error:
             runs.append(Run(response, None))
             break
-        trace = _wait_for_trace(repo, original.name, last_id, wait_seconds)
-        if trace and trace.request and not trace.request.response and response.fingerprint:
-            # Frameworks whose middleware cannot see the body (Flask) get it from here.
-            trace.request.response = response.fingerprint
-            repo.update_request(trace.id, trace.request)
-        runs.append(Run(response, trace))
+        runs.append(Run(response, _wait_for_trace(repo, original.name, last_id, wait_seconds)))
     return _report(original, runs, extra_headers=headers)
 
 

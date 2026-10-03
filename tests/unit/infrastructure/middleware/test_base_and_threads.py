@@ -51,6 +51,7 @@ def in_thread(func):
     return result["value"]
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 12), reason="threadpool hooks run before 3.12")
 def test_worker_threads_give_back_a_foreign_profiler():
     tracer = VizTracer(verbose=0)
     tracer.start()

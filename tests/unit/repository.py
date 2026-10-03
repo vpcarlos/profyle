@@ -40,9 +40,6 @@ class InMemoryTraceRepository(TraceRepository):
     def latest_trace_id(self) -> int:
         return max((t.id for t in self.traces), default=0)
 
-    def update_request(self, trace_id: int, request: RecordedRequest) -> None:
-        self._stored(trace_id).request = request
-
     def delete_trace(self, trace_id: int) -> None:
         self.traces = [t for t in self.traces if t.id != trace_id]
 

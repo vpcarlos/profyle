@@ -51,8 +51,13 @@ All notable changes to this project are documented here. The format follows
 - The trace viewer no longer sends permissive CORS headers.
 - Traces are saved in a background thread after the response is sent: the request no
   longer waits for the trace to be parsed and written, and an async server's event loop
-  is no longer blocked by it. At most two traces wait to be saved; requests beyond that
-  are served untraced, like concurrent ones.
+  is no longer blocked by it. A request that arrives while the previous trace is still
+  being saved waits for it (up to 5 s; async servers wait in a worker thread) so the
+  saving never shows up in, or slows down, the next trace.
+- WSGI apps (Flask...) are traced until the response body has been sent: work done while
+  a generator streams the body is in the trace, and Flask traces get a response
+  fingerprint without a replay. The tracer is stopped between chunks, so a body that is
+  never read cannot leave it running.
 - `profyle analyze` without an id analyzes the newest trace.
 - `capture_secrets` and `replay_allow_remote` are regular settings: besides their
   `PROFYLE_*` environment variables they can be set in `[tool.profyle]`, and

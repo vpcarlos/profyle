@@ -1,4 +1,5 @@
 import threading
+import time
 from wsgiref.simple_server import WSGIRequestHandler, make_server
 
 import pytest
@@ -37,6 +38,14 @@ def test_refuses_requests_whose_body_was_not_recorded():
 class QuietHandler(WSGIRequestHandler):
     def log_message(self, *args):
         pass
+
+
+def traces_once_stored(repo, count, timeout=10):
+    """The server stores a trace after it has sent the response."""
+    deadline = time.monotonic() + timeout
+    while len(repo.traces) < count and time.monotonic() < deadline:
+        time.sleep(0.01)
+    return repo.traces
 
 
 @pytest.fixture
@@ -78,7 +87,7 @@ def test_replay_sends_the_same_request_and_reports_the_new_trace(traced_server):
             method="POST",
         )
     )
-    [original] = repo.traces
+    [original] = traces_once_stored(repo, 1)
     assert original.request.status_code == 201
     assert original.request.headers["authorization"] == "[redacted]"
 
@@ -122,11 +131,7 @@ def test_replay_checks_the_response_body(traced_server):
 
     base_url, repo, _, app = traced_server
     urllib.request.urlopen(f"{base_url}/orders").read()
-    [original] = repo.traces
-    # Flask's middleware cannot see the body: the first replay provides the baseline.
-    first = tools.replay_trace(repo, original.id)
-    assert "not recorded" in first and "no recorded response body" in first
-    baseline = repo.traces[-1]
+    [baseline] = traces_once_stored(repo, 1)
     assert baseline.request.response is not None
 
     same = tools.replay_trace(repo, baseline.id)
