@@ -21,7 +21,8 @@ READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 server = MCPServer(
     name="profyle",
     instructions=(
-        "Profyle records VizTracer traces of HTTP requests (FastAPI, Flask, Django). "
+        "Profyle records VizTracer traces of HTTP requests (FastAPI, Flask, Django, Tornado "
+        "and any ASGI/WSGI app). "
         "If anything looks off (no traces, replay fails), call doctor. "
         "Start with slowest_endpoints or list_traces, then analyze_trace on one trace id. "
         "Drill down with get_call_details and get_function_source, then read and change "
