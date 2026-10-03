@@ -37,6 +37,8 @@ All notable changes to this project are documented here. The format follows
   is identical, has the same structure, or changed.
 - CLI commands `analyze`, `replay` and `doctor`.
 
+- 100% line and branch coverage, enforced in CI, with a coverage badge in the README.
+
 ### Changed
 - Traces are stored in `<project>/.profyle/profile.db` (git-ignored automatically)
   instead of inside the installed package. Set `PROFYLE_DB` to choose another file.
@@ -48,7 +50,12 @@ All notable changes to this project are documented here. The format follows
   sources above apply.
 - The trace viewer no longer sends permissive CORS headers.
 
+### Removed
+- Unused trace models and the redundant table-creation startup hook of the web viewer.
+
 ### Fixed
+- `profyle run uvicorn --factory` reported the app as `str`; it is now
+  reported as a plain ASGI app.
 - Concurrent requests corrupted each other's traces (VizTracer: "Overwrite tracer!").
   A request that arrives while another one is traced is now served untraced, and the
   console says so.

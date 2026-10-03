@@ -49,3 +49,21 @@ def test_invalid_values_name_the_setting(monkeypatch):
 
     with pytest.raises(ValueError, match="max_stack_depth='deep'.*environment"):
         load_config()
+
+
+def test_unknown_and_invalid_pyproject_settings(project):
+    (project / "pyproject.toml").write_text('[tool.profyle]\nunknown = 1\nenabled = "yes"\n')
+    config = load_config()
+    assert config.enabled is True and config.sources == {"enabled": "pyproject.toml"}
+
+    (project / "pyproject.toml").write_text("[tool.profyle\nbroken")
+    assert load_config().sources == {}
+
+
+def test_boolean_values(monkeypatch):
+    monkeypatch.setenv("PROFYLE_CONSOLE", "on")
+    assert load_config(console=False).console is True
+
+    monkeypatch.setenv("PROFYLE_CONSOLE", "maybe")
+    with pytest.raises(ValueError, match="console='maybe'"):
+        load_config()

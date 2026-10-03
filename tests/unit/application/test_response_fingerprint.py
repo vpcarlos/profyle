@@ -36,3 +36,16 @@ def test_non_json_bodies_compare_bytes():
 
 def test_unknown_when_a_side_is_missing():
     assert compare(None, fingerprint(b"{}", "application/json")) == "unknown"
+
+
+def test_invalid_json_is_compared_as_bytes():
+    broken = fingerprint(b"{not json", "application/json")
+
+    assert broken.shape is None
+
+
+def test_null_values_are_part_of_the_structure():
+    a = fingerprint(b'{"customer": null}', "application/json")
+    b = fingerprint(b'{"customer": "c0"}', "application/json")
+
+    assert compare(a, b) == "different"

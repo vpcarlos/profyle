@@ -132,3 +132,9 @@ def test_reads_profyle_min_duration_and_warns_on_old_setting():
         with pytest.warns(DeprecationWarning, match="PROFYLE_MIN_DURATION"):
             middleware = ProfyleMiddleware(lambda r: None)
     assert middleware.integration.config.min_duration == 7
+
+
+def test_public_import_path():
+    import profyle.django
+
+    assert profyle.django.ProfyleMiddleware is ProfyleMiddleware

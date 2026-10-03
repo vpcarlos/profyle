@@ -436,9 +436,7 @@ def _count_traces(path: str) -> int:
         return 0
 
 
-def _app_reachable(base_url: str | None) -> tuple[bool | None, str]:
-    if not base_url:
-        return None, "Could not tell where the app listens."
+def _app_reachable(base_url: str) -> tuple[bool | None, str]:
     parts = urlsplit(base_url)
     host = parts.hostname or "localhost"
     port = parts.port or (443 if parts.scheme == "https" else 80)

@@ -31,3 +31,18 @@ def test_data_dir_is_ignored_by_git(tmp_path):
 
     assert os.path.isdir(data_dir)
     assert (data_dir / ".gitignore").read_text().splitlines()[-1] == "*"
+
+
+def test_project_root_falls_back_to_the_start_directory(tmp_path, monkeypatch):
+    import profyle.settings as settings_module
+
+    monkeypatch.setattr(settings_module, "PROJECT_MARKERS", ("no-such-marker-xyz",))
+
+    assert find_project_root(str(tmp_path)) == str(tmp_path)
+
+
+def test_custom_database_directory_gets_no_gitignore(tmp_path):
+    ensure_data_dir(str(tmp_path / "traces"))
+
+    assert (tmp_path / "traces").is_dir()
+    assert not (tmp_path / "traces" / ".gitignore").exists()

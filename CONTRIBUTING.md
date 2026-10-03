@@ -20,6 +20,7 @@ $ git clone https://github.com/vpcarlos/profyle && cd profyle
 $ uv sync                  # creates .venv with the dev dependencies
 $ uv run pytest            # run the test suite
 $ uv run pytest -m "not integration"   # skip the tests that start real servers
+$ uv run pytest --cov       # with coverage; fails below 100%
 $ uv run ruff check profyle tests
 ```
 
@@ -62,6 +63,10 @@ The integration tests in `tests/integration/` run exactly these apps through
 - **Tests:** every change in behavior needs a test. Tracing bugs are often thread or
   Python-version specific, so make the test fail without your fix (see the worker-thread
   tests in `tests/unit/infrastructure/middleware/`).
+- **Coverage:** CI requires 100% line and branch coverage (measured on Linux with
+  Python 3.11, subprocesses included). Cover new code with a test. Only code that cannot
+  run there (Windows-only or Python 3.12+ branches) may be excluded, inline with
+  `# pragma: no cover - <reason>`.
 - **Python versions:** CI runs 3.10 to 3.13. VizTracer uses `sys.setprofile` before 3.12
   and `sys.monitoring` from 3.12, so tracing changes should be checked on both sides.
 - **Dependency floors:** CI also runs the tests with the lowest versions allowed in

@@ -31,7 +31,7 @@ _patched: set[str] = set()
 
 
 def trace_worker_threads() -> None:
-    if sys.version_info >= (3, 12):
+    if sys.version_info >= (3, 12):  # pragma: no cover - coverage is measured on 3.11
         return
     _patch_anyio()
     _patch_asgiref()
@@ -44,6 +44,11 @@ def trace_worker_threads() -> None:
 # per-thread call stack unbalanced and it stops tracing that thread for good
 # ("Unexpected function return"). pause() also drops the thread's reference to the
 # tracer, so pool threads do not keep a finished request's event buffer alive.
+#
+# Known VizTracer limitation: a thread that has ever had another Python-level profiler
+# (cProfile, some debuggers) cannot be traced with enable_thread_tracing() afterwards;
+# VizTracer warns "Unexpected function return" and skips that thread. Profyle still
+# gives the other profiler back when the call ends.
 
 
 def _first_time_in_thread(tracer) -> bool:

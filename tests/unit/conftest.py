@@ -64,3 +64,26 @@ def flask_client(flask_app):
 @pytest.fixture()
 def fastapi_client(fastapi_app):
     yield TestClient(fastapi_app)
+
+
+@pytest.fixture
+def project_db(tmp_path, monkeypatch):
+    """An isolated project whose trace database holds two traces of GET /users."""
+    from profyle.domain.trace import RecordedRequest, TraceCreate
+    from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
+    from tests.unit.application.analysis.test_digest import make_trace
+
+    (tmp_path / "pyproject.toml").write_text("")
+    monkeypatch.chdir(tmp_path)
+    for name in ("DB", "PROJECT_DIR", "ENABLED", "PATTERN", "CONSOLE"):
+        monkeypatch.delenv(f"PROFYLE_{name}", raising=False)
+    db_path = tmp_path / ".profyle" / "profile.db"
+    monkeypatch.setenv("PROFYLE_DB", str(db_path))
+    db_path.parent.mkdir()
+    repo = SQLiteTraceRepository()
+    request = RecordedRequest(method="GET", path="/users", base_url="http://127.0.0.1:9")
+    for duration in (1.0, 5.0):
+        repo.store_trace(
+            TraceCreate(raw_trace=make_trace(duration), name="GET /users", request=request)
+        )
+    yield repo

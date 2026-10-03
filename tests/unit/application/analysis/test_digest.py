@@ -134,3 +134,63 @@ def test_empty_trace():
 
     assert digest["total_ms"] == 0
     assert digest["hot_path"] == []
+
+
+LIB = "/venv/lib/python3.11/site-packages/framework/{}.py"
+
+
+def library_frame(name, ts, dur):
+    return event(f"{name} ({LIB.format(name)}:1)", ts, dur)
+
+
+def test_render_collapses_library_frames_and_handles_missing_sections():
+    # Five nested library frames that only pass time down to a builtin.
+    events = [library_frame(f"layer{i}", i, 1000 - 2 * i) for i in range(5)]
+    events.append(event("time.sleep", 10, 900))
+    text = render_digest(build_digest({"traceEvents": events}))
+
+    assert "… 2 library frames passing time through …" in text
+    assert "Your code by inclusive time" not in text
+    assert "Repeated calls" not in text
+
+
+def test_readable_names_for_bare_comprehension_frames():
+    from profyle.application.analysis.digest import _readable
+
+    assert _readable("<listcomp>", "/app/views.py:12") == "list comprehension at views.py:12"
+    assert _readable("<genexpr>") == "generator expression"
+
+
+def test_headline_of_an_empty_trace():
+    from profyle.application.analysis.digest import headline
+
+    assert headline(build_digest({"traceEvents": []})) == "empty trace"
+
+
+def test_function_source_variants():
+    trace = make_trace()
+    functions = trace["file_info"]["functions"]
+    # Exact VizTracer name, and a function pointing at its def line under a decorator.
+    functions[HANDLER] = ["/app/views.py", 9]
+    source = get_function_source(trace, HANDLER)
+    assert source.splitlines()[1].endswith("@decorator")
+
+    # A function followed by another one at the same level ends at the dedent.
+    assert "def handler" not in get_function_source(trace, "get_user")
+
+    # Long functions are truncated.
+    assert get_function_source(trace, "handler", max_lines=2).endswith("# … truncated")
+
+    # Source not captured for that file.
+    functions["ghost (/app/ghost.py:1)"] = ["/app/ghost.py", 1]
+    assert get_function_source(trace, "ghost") is None
+
+
+def test_call_details_of_a_function_never_called():
+    assert get_call_details(make_trace(), "missing") is None
+
+
+def test_call_details_lists_callees():
+    details = get_call_details(make_trace(), "handler")
+
+    assert {c["function"] for c in details["callees"]} == {"time.sleep", "get_user"}

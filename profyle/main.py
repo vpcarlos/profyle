@@ -107,7 +107,7 @@ def run_command(command: list[str]) -> None:
         "Each request prints a summary line here; ask Claude Code about a slow one, "
         "or run `profyle start` to browse traces."
     )
-    if os.name == "nt":
+    if os.name == "nt":  # pragma: no cover - Windows has no exec; run as a child
         sys.exit(subprocess.call([executable, *command[1:]], env=env))
     os.execve(executable, [command[0], *command[1:]], env)
 

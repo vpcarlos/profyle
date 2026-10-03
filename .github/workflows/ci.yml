@@ -56,6 +56,26 @@ jobs:
       - name: Pytest
         run: uv run --frozen pytest -v
 
+  coverage:
+    name: coverage (100% required)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install uv
+      - run: uv sync --frozen --python 3.11
+      - name: Pytest with coverage
+        # Fails below 100% (fail_under in pyproject.toml). Subprocesses (`profyle run`,
+        # the console worker, the example servers) are measured too.
+        run: uv run --frozen pytest --cov --cov-report=term --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage.xml
+
   lowest-dependencies:
     name: tests (lowest supported dependency versions)
     runs-on: ubuntu-latest

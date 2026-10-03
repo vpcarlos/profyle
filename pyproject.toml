@@ -78,6 +78,8 @@ dev = [
     "tornado>=6.1",
     "gunicorn>=22.0; sys_platform != 'win32'",
     "mcp>=2.0.0",
+    "pytest-cov>=6.0",
+    "coverage[toml]>=7.10",
     "pytest-asyncio>=0.21.1",
     "ruff>=0.1.5",
 ]
@@ -86,6 +88,25 @@ dev = [
 asyncio_mode = "auto"
 markers = [
     "integration: starts real servers in subprocesses (deselect with -m 'not integration')",
+]
+
+[tool.coverage.run]
+source = ["profyle"]
+branch = true
+# Measure code run by subprocesses too (profyle run, the console worker, servers):
+# follow subprocesses and execve, and save data when servers are stopped with SIGTERM.
+patch = ["subprocess", "execv"]
+sigterm = true
+parallel = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 100
+# Code that cannot run where coverage is measured (Linux, Python 3.11) is marked inline
+# with "# pragma: no cover" and a reason.
+exclude_also = [
+    'if __name__ == "__main__":',
 ]
 
 [tool.ruff]

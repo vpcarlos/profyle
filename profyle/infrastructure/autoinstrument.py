@@ -132,12 +132,11 @@ def _patch_uvicorn(module: ModuleType) -> None:
     original = config.load
 
     def load(self):
+        # The app object, to tell which framework it is. With --factory (or if the import
+        # fails) it is unknown until uvicorn builds it, so it is treated as plain ASGI.
         app = self.app
-        if isinstance(app, str) and not self.factory:
-            try:
-                app = module.import_from_string(app)
-            except Exception:
-                app = None
+        if isinstance(app, str):
+            app = None if self.factory else _import_or_none(module, app)
         original(self)
         if self.loaded and not _handled_by_framework_hook(app):
             name = _app_name(app)
@@ -147,6 +146,13 @@ def _patch_uvicorn(module: ModuleType) -> None:
             _announce(name, self.loaded_app.integration)
 
     config.load = load
+
+
+def _import_or_none(module: ModuleType, path: str):
+    try:
+        return module.import_from_string(path)
+    except Exception:
+        return None
 
 
 def _app_name(app) -> str:

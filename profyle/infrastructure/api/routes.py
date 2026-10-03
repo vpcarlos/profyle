@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
 
-from profyle.application.trace.create import create_trace_selected_table, create_trace_table
+from profyle.application.trace.delete import delete_trace_by_id
 from profyle.application.trace.get import get_all_traces, get_trace_by_id, get_trace_selected
 from profyle.application.trace.store import store_trace_selected
 from profyle.infrastructure.sqlite3.get_connection import get_connection
@@ -15,14 +15,6 @@ from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 from profyle.settings import settings
 
 app = FastAPI(title="Profyle", version="1.0.0")
-
-
-@app.on_event("startup")
-async def startup_event():
-    db = get_connection()
-    sqlite_trace_repo = SQLiteTraceRepository(db)
-    create_trace_table(repo=sqlite_trace_repo)
-    create_trace_selected_table(repo=sqlite_trace_repo)
 
 
 STATIC_PATH = ("infrastructure", "web", "static")
@@ -132,4 +124,4 @@ async def delete_trace(
     db: Connection = Depends(get_connection),
 ) -> None:
     sqlite_trace_repo = SQLiteTraceRepository(db)
-    sqlite_trace_repo.delete_trace_by_id(id)
+    delete_trace_by_id(repo=sqlite_trace_repo, trace_id=id)

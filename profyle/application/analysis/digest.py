@@ -286,7 +286,8 @@ def _readable(function: str, location: str | None = None) -> str:
 def headline(digest: dict[str, Any]) -> str:
     """One line naming the main suspect of a trace, for listings."""
     total = digest["total_ms"]
-    if not total:
+    # A trace with any duration has at least one function in top_self_time.
+    if not total or not digest["top_self_time"]:
         return "empty trace"
     # Recursion (a function calling itself, e.g. a serializer walking a tree) is not
     # a repeated-call smell like an N+1.
@@ -299,12 +300,10 @@ def headline(digest: dict[str, Any]) -> str:
             f"{_readable(repeated['callee'], repeated.get('callee_location'))} "
             f"×{repeated['calls']} ({repeated['pct_of_total']}%)"
         )
-    if digest["top_self_time"]:
-        top = digest["top_self_time"][0]
-        pct = round(100 * top["self_ms"] / total, 1)
-        kind = "wait" if is_io_like(top["function"]) else "hot"
-        return f"{kind}: {top['function']} {top['self_ms']} ms ({pct}%)"
-    return "no function calls recorded"
+    top = digest["top_self_time"][0]
+    pct = round(100 * top["self_ms"] / total, 1)
+    kind = "wait" if is_io_like(top["function"]) else "hot"
+    return f"{kind}: {top['function']} {top['self_ms']} ms ({pct}%)"
 
 
 def _hot_path(trees: dict[tuple[Any, Any], list[Node]], total: float, max_depth: int = 40):

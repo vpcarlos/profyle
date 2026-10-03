@@ -12,6 +12,9 @@
 <a href="https://github.com/vpcarlos/profyle/actions/workflows/ci.yml" target="_blank">
     <img src="https://github.com/vpcarlos/profyle/actions/workflows/ci.yml/badge.svg" alt="CI">
 </a>
+<a href="https://github.com/vpcarlos/profyle/actions/workflows/ci.yml" target="_blank">
+    <img src="https://img.shields.io/badge/coverage-100%25-brightgreen" alt="Coverage: 100%, enforced in CI">
+</a>
 <a href="https://pypi.org/project/profyle" target="_blank">
     <img src="https://img.shields.io/pypi/v/profyle" alt="Package version">
 </a>
