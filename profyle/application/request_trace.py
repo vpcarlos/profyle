@@ -123,16 +123,8 @@ class RequestTrace:
             if self.on_busy:
                 self.on_busy()
             return
-        self.tracer = VizTracer(
-            log_func_args=True,
-            log_print=True,
-            log_func_retval=True,
-            log_async=True,
-            file_info=True,
-            min_duration=self.min_duration,
-            max_stack_depth=self.max_stack_depth,
-            verbose=0,
-        )
+        self.tracer = _tracer(self.min_duration, self.max_stack_depth)
+        self.tracer.clear()
         self.tracer.start()
         _active_tracer = self.tracer
 
@@ -193,7 +185,6 @@ class RequestTrace:
     def _store(self, request: RecordedRequest | None) -> None:
         try:
             raw_trace = _trace_json(self.tracer)
-            self.tracer = None  # the buffer can be freed
             trace_id = self.repo.add_trace(
                 NewTrace(name=self.name, raw_trace=raw_trace, request=request)
             )
@@ -218,9 +209,32 @@ def _finish_abandoned_trace() -> None:
         owner.finish(background=False)
 
 
+@functools.cache
+def _tracer(min_duration: float, max_stack_depth: int) -> VizTracer:
+    """One VizTracer per configuration, reused by every trace and never freed.
+
+    VizTracer must outlive every thread it traced: freeing a tracer leaves a dangling
+    pointer in the thread-local state of those threads, which VizTracer writes to when
+    such a thread exits (worker pools exit long after the request), corrupting memory
+    and crashing the process later. Reusing the tracer also avoids allocating its event
+    buffer for every request.
+    """
+    return VizTracer(
+        log_func_args=True,
+        log_print=True,
+        log_func_retval=True,
+        log_async=True,
+        file_info=True,
+        min_duration=min_duration,
+        max_stack_depth=max_stack_depth,
+        verbose=0,
+    )
+
+
 def _trace_json(tracer: VizTracer) -> dict:
     tracer.parse()
     report = ReportBuilder(tracer.data, verbose=0)
+    tracer.data = None  # the reused tracer would otherwise keep the last trace alive
     report.prepare_json(file_info=True)
     return report.combined_json
 

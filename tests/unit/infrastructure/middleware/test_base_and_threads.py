@@ -91,7 +91,8 @@ def test_async_tracing_is_resumed_in_a_reused_worker_thread():
             return asyncio.run(traced()) + asyncio.run(traced())
 
         assert pool.submit(async_twice).result() == 84
-        assert tracer.__dict__["_profyle_threads"]  # hooked once, then resumed
+        # Hooked once, then resumed.
+        assert pool.submit(lambda: id(tracer) in threadpool._attached.tracers).result()
         # In the thread that started the tracer the coroutine runs as is.
         assert asyncio.run(threadpool._traced_async(work, tracer)()) == 42
     finally:

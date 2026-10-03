@@ -77,6 +77,9 @@ All notable changes to this project are documented here. The format follows
 - The duration of a trace missed the time spent in its last call.
 - The trace viewer left a database connection open per request.
 - `get_function_source` crashed when a trace pointed past the end of a file.
+- Occasional segmentation faults (seen when a worker thread pool shut down, or at exit):
+  VizTracer writes to freed memory when a thread exits after the tracer that traced it
+  was freed. Profyle now reuses one tracer instead of creating one per request.
 - `profyle run uvicorn --factory` reported the app as `str`; it is now
   reported as a plain ASGI app.
 - Concurrent requests corrupted each other's traces (VizTracer: "Overwrite tracer!").

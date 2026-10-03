@@ -51,12 +51,16 @@ def trace_worker_threads() -> None:
 # gives the other profiler back when the call ends.
 
 
+# The tracers each thread has been attached to. Thread-local, so a new thread that reuses
+# the id of a finished one starts with none (tracers are reused, see request_trace).
+_attached = threading.local()
+
+
 def _first_time_in_thread(tracer) -> bool:
-    threads = tracer.__dict__.setdefault("_profyle_threads", set())
-    thread_id = threading.get_ident()
-    if thread_id in threads:
+    tracers = _attached.__dict__.setdefault("tracers", set())
+    if id(tracer) in tracers:
         return False
-    threads.add(thread_id)
+    tracers.add(id(tracer))
     return True
 
 
