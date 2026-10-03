@@ -167,17 +167,6 @@ Then ask Claude Code *"why is GET /users slow? fix it"*. It gets read-only tools
 `get_function_source`, `compare_traces`) and, since it already has your repository open,
 can go from trace to code change, and verify the fix by comparing a new trace.
 
-### In-app chat
-```console
-$ pip install "profyle[ai]"
-$ export ANTHROPIC_API_KEY=...   # or `ant auth login`
-$ profyle start
-```
-Open a trace and use the chat bubble. Model and effort can be changed with
-`PROFYLE_CLAUDE_MODEL` (default `claude-opus-5-5`) and `PROFYLE_CLAUDE_EFFORT`
-(default `medium`). Function arguments and return values recorded in the trace are sent
-to the Claude API when the model asks for them.
-
 ### Any LLM / scripts
 ```console
 $ profyle analyze 42 | claude -p "Find the bottleneck and propose a fix"

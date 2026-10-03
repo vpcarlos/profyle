@@ -1,6 +1,5 @@
 import pytest
 
-from profyle.application.ai.agent import _prepare_messages
 from profyle.application.analysis import toolkit
 from profyle.application.trace.store import store_trace
 from tests.unit.application.analysis.test_digest import make_trace
@@ -34,17 +33,3 @@ def test_unknown_trace(repo):
     with pytest.raises(toolkit.TraceNotFound):
         toolkit.analyze_trace(repo, 123)
 
-
-def test_prepare_messages_drops_leading_assistant_and_adds_trace_context():
-    messages = _prepare_messages(
-        [
-            {"role": "assistant", "content": "Hi!"},
-            {"role": "user", "content": "Why is it slow?"},
-        ],
-        trace_id=7,
-    )
-
-    assert messages == [
-        {"role": "user", "content": "Why is it slow?"},
-        {"role": "system", "content": "The user is currently viewing trace id 7."},
-    ]

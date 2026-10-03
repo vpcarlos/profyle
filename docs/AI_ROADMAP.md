@@ -12,16 +12,16 @@ Estado del intento previo de IA (rama de trabajo local, nunca publicado):
 |---|---|
 | API key de Google escrita en `agent.py` | Credencial filtrada; **hay que revocarla** |
 | La herramienta del agente ejecutaba **SQL arbitrario** (incluido `DELETE`/`DROP`) | Un prompt podía borrar la base de datos |
-| El agente hacía `SELECT data` de la traza completa | Una sola petición son ~100k–200k eventos (decenas de MB): no cabe en ningún contexto |
+| El agente de LangChain/Gemini (eliminado) hacía `SELECT data` de la traza completa | Una sola petición son ~100k–200k eventos (decenas de MB): no cabe en ningún contexto |
 | `store_trace` ya no llamaba al repositorio | No se guardaba ninguna traza; los 11 tests fallaban |
 | Tablas normalizadas con SQL inválido (coma final, `FOREIGN KEY` antes de las columnas) | Rompían el repositorio en cuanto se llamaban |
-| CORS `*` en el servidor local | Cualquier web podía llamar a `localhost/chat`, gastar créditos y extraer trazas con código fuente |
+| CORS `*` en el servidor local | Cualquier web podía leer las trazas (con código fuente) desde `localhost` |
 
 ## 2. Tesis: dónde está el valor diferencial
 
 El cuello de botella no es el modelo, es el **contexto**. Un LLM no puede leer una traza
-cruda, y un chat dentro del visor no puede *cambiar* el código. El valor diferencial está
-en cerrar el ciclo:
+cruda. Y no tiene sentido construir otro chat: Claude ya es la interfaz. El valor
+diferencial está en darle a Claude las trazas y cerrar el ciclo:
 
 ```
 petición lenta → traza → digest compacto → Claude Code (que ya tiene el repo abierto)
@@ -64,19 +64,15 @@ de mayor valor: Claude Code combina las trazas con el repositorio, edita el cód
 verifica con `compare_traces`. Probado de extremo a extremo con un cliente MCP real sobre
 stdio.
 
-### 3.3 Chat en el visor con Claude (`profyle[ai]`)
-Sustituye LangChain + Gemini por el SDK oficial de Anthropic (tool runner) con las mismas
-herramientas que el MCP, así que nunca ve SQL ni trazas crudas. Historial multi-turno,
-contexto de la traza abierta como mensaje de sistema, caché del system prompt, fallback
-del servidor ante rechazos y errores tipados (un 503 claro si no hay credenciales).
-
-### 3.4 Otros
+### 3.3 Otros
 - `profyle analyze <id>`: digest por stdout, para usar con `| claude -p "..."` o en CI.
 - `PROFYLE_DB`: una base de datos por proyecto (antes vivía dentro de `site-packages`).
-- Dependencias de IA como extras opcionales (`profyle[ai]`, `profyle[mcp]`): el
-  middleware sigue siendo ligero.
+- El SDK de MCP es un extra opcional (`profyle[mcp]`): el middleware sigue siendo
+  ligero.
 - Arreglado el guardado de trazas, el `TemplateResponse` con Starlette reciente, y
   eliminado CORS `*`.
+- Eliminado el chat del visor (agente LangChain/Gemini, endpoint `/chat` y su UI): el
+  análisis se hace desde Claude a través del MCP.
 
 ## 4. Hoja de ruta propuesta (por impacto/esfuerzo)
 

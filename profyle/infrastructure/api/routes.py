@@ -1,12 +1,10 @@
 import os
 from sqlite3 import Connection
-from typing import Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
 from starlette.responses import RedirectResponse
 
 from profyle.application.trace.create import create_trace_selected_table, create_trace_table
@@ -17,15 +15,6 @@ from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 from profyle.settings import settings
 
 app = FastAPI(title="Profyle", version="1.0.0")
-
-
-class ChatTurn(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str
-
-
-class ChatRequest(BaseModel):
-    messages: list[ChatTurn]
 
 
 @app.on_event("startup")
@@ -144,22 +133,3 @@ async def delete_trace(
 ) -> None:
     sqlite_trace_repo = SQLiteTraceRepository(db)
     sqlite_trace_repo.delete_trace_by_id(id)
-
-
-@app.post("/chat")
-async def chat_endpoint(
-    chat: ChatRequest,
-    db: Connection = Depends(get_connection),
-):
-    from profyle.application.ai.agent import ClaudeNotConfigured, get_agent_response
-
-    sqlite_trace_repo = SQLiteTraceRepository(db)
-    try:
-        response = await get_agent_response(
-            repo=sqlite_trace_repo,
-            history=[turn.model_dump() for turn in chat.messages],
-            trace_id=get_trace_selected(repo=sqlite_trace_repo),
-        )
-    except ClaudeNotConfigured as error:
-        raise HTTPException(status_code=503, detail=str(error)) from error
-    return {"response": response}

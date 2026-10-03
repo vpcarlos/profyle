@@ -1,4 +1,4 @@
-"""Read-only trace analysis tools shared by the MCP server and the in-app Claude chat.
+"""Read-only trace analysis tools behind the MCP server and `profyle analyze`.
 
 Every function returns plain text (Markdown or JSON) so it can be handed to a model as
 a tool result as is.

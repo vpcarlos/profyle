@@ -53,10 +53,6 @@ django = [
 fastapi = [
     "fastapi>=0.115.0",
 ]
-# In-app trace chat powered by Claude (POST /chat)
-ai = [
-    "anthropic>=0.70.0",
-]
 # MCP server so Claude Code / Claude Desktop can query traces (`profyle mcp`)
 mcp = [
     "mcp>=1.10.0",
@@ -69,7 +65,6 @@ dev = [
     "httpx>=0.23.3",
     "flask>=2.0.0",
     "django>=4.2.7",
-    "anthropic>=0.70.0",
     "mcp>=1.10.0",
     "pytest-asyncio>=0.21.1",
     "ruff>=0.1.5",
