@@ -6,8 +6,12 @@
  >
 </p>
 
-### Trace your Python web requests, find the bottleneck, fix it with Claude Code
-[![CI](https://github.com/vpcarlos/profyle/actions/workflows/ci.yml/badge.svg)](https://github.com/vpcarlos/profyle/actions/workflows/ci.yml)
+<h3 align="center">Tell Claude Code which endpoint is slow. Get back a measured, verified fix.</h3>
+
+<p align="center">
+<a href="https://github.com/vpcarlos/profyle/actions/workflows/ci.yml" target="_blank">
+    <img src="https://github.com/vpcarlos/profyle/actions/workflows/ci.yml/badge.svg" alt="CI">
+</a>
 <a href="https://pypi.org/project/profyle" target="_blank">
     <img src="https://img.shields.io/pypi/v/profyle" alt="Package version">
 </a>
@@ -17,64 +21,85 @@
 <a href="https://github.com/vpcarlos/profyle/blob/main/LICENSE" target="_blank">
     <img src="https://img.shields.io/pypi/l/profyle" alt="License">
 </a>
+</p>
 
-Profyle records a [VizTracer](https://github.com/gaogaotiantian/viztracer) trace of every
-request to your FastAPI, Flask or Django app, lets you explore it in
-[Perfetto](https://perfetto.dev), and gives Claude Code the tools to find the bottleneck,
-fix your code and prove the fix by replaying the request.
+Profyle traces the requests of your **FastAPI, Flask or Django** app with
+[VizTracer](https://github.com/gaogaotiantian/viztracer) and gives Claude Code what it
+needs to find the bottleneck, fix your code and **prove** the fix by replaying the same
+request.
+
+## Three steps
+
+**1. Install, once**
+
+```console
+$ pip install "profyle[mcp]"
+$ claude plugin marketplace add vpcarlos/profyle
+$ claude plugin install profyle@profyle
+```
+
+**2. Ask Claude Code**
+
+> GET /orders is slow, can you fix it?
+
+**3. Get a verified fix**
+
+> `GET /orders` now takes about **17 ms** warm, down from about **120 ms**.
+>
+> **Root cause:** an N+1 query. `list_orders` (`main.py:22`) called `get_customer`
+> (`main.py:17`) once per order: 50 calls, 107 ms, 90% of the request.
+>
+> **Change:** `get_customers` fetches all the names with one `WHERE id IN (...)` query.
+>
+> | | Before | After |
+> |---|---|---|
+> | Median request time | 119.9 ms | 16.9 ms |
+> | Lookup calls | 50 | 1 |
+>
+> **Behavior check:** status 200 and an identical response body before and after.
+
+*A real Claude Code session on a project with no Profyle code and the server stopped.*
+
+<details markdown="1">
+<summary>What Claude did between steps 2 and 3</summary>
+
+1. Checked the setup with `doctor`: nothing traced yet.
+2. Found the dev server command in the README and, with your OK, started it with
+   `profyle run uvicorn main:app --reload`, which traces without code changes.
+3. Called the endpoint and replayed it 3 times for a warm baseline (the first request
+   of a server includes warm-up).
+4. Read the trace digest: `list_orders → get_customer ×50`, 90% of the request.
+5. Fixed the code, waited for the reload, replayed the same request and compared the
+   traces: 7× faster, same status, same response body.
+</details>
+
+### What you don't have to do
+- ✗ Edit your app or add a middleware: `profyle run` adds tracing when the app starts.
+- ✗ Write configuration or set environment variables: traces go to
+  `<project>/.profyle/`, which git ignores automatically.
+- ✗ Read a flamegraph of thousands of frames: each trace has a one-line main finding.
+- ✗ Benchmark by hand: the same request is replayed and compared before and after.
+
+### Prefer to look yourself?
+Start your dev server through `profyle run` and every request tells you where its time
+went:
+
+```console
+$ profyle run uvicorn main:app --reload
+profyle ▸ GET /orders 123.8 ms · #2 · repeated: list_orders → get_customer ×50 (87.1%)
+```
+
+Then `profyle start` lets you browse the traces in Perfetto.
 
 > [!WARNING]
 > Profyle is a **development tool**. Tracing slows requests down and traces contain
 > source code and request data, so do not enable it in production. See
 > [SECURITY.md](SECURITY.md).
 
-## Why Profyle?
-- **Find the bottleneck, not just a flamegraph**: every traced request gets a one-line
-  main finding, such as `repeated: list_orders → get_customer ×100 (83%)`.
-- **No code changes**: `profyle run uvicorn main:app --reload` traces FastAPI,
-  Starlette, Flask, Django and any ASGI app served by uvicorn.
-- **Fixes you can trust**: Claude Code reads the trace, changes your code, replays the
-  same request and checks that it is faster *and* returns the same data.
-
-## Installation
-
-<div class="termy">
-
-```console
-$ pip install profyle
-
----> 100%
-```
-
-</div>
-
-Requires Python 3.10+. Extras: `profyle[mcp]` (Claude Code / MCP server),
-`profyle[flask]`, `profyle[django]`.
-
-## Quick start with Claude Code
-
-```console
-$ pip install "profyle[mcp]"                        # in your app's environment
-$ claude plugin marketplace add vpcarlos/profyle
-$ claude plugin install profyle@profyle
-```
-
-Then, in your project, tell Claude Code what feels slow:
-
-> GET /orders is slow, can you fix it?
-
-The `fix-slow-endpoint` skill takes it from there. If the app is not traced yet, Claude
-proposes starting your dev server with `profyle run` (no code changes) and, once you
-agree, makes the request, reads the trace, fixes the code, replays the request and
-reports the measured before/after:
-
-> `GET /orders` now takes about **17 ms** warm instead of **120 ms**. Root cause: N+1
-> query, `list_orders` (`main.py:22`) called `get_customer` once per order (50 calls,
-> 90% of the request) … Status 200 and response body identical before and after.
-
-The plugin starts `profyle` from your `PATH`; if that is not your project's environment,
-set `PROFYLE_COMMAND=/path/to/.venv/bin/profyle`. Without the plugin, register just the
-MCP server from your project directory: `claude mcp add profyle -- profyle mcp`.
+Requires Python 3.10+. The plugin starts `profyle` from your `PATH`; if that is not your
+project's environment, set `PROFYLE_COMMAND=/path/to/.venv/bin/profyle`. Without the
+plugin, register just the MCP server from your project directory:
+`claude mcp add profyle -- profyle mcp`.
 
 ## Add tracing to your app
 
