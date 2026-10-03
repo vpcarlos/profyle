@@ -1,51 +1,58 @@
 [project]
 name = "profyle"
-version = "0.3.0"
-description = "Profyle, a development tool for analysing and managing python traces"
+version = "0.4.0"
+description = "Trace Python web requests (FastAPI, Flask, Django) with VizTracer, find bottlenecks and fix them with Claude Code."
 authors = [{ name = "Carlos Valdivia", email = "vpcarlos97@gmail.com" }]
 maintainers = [{ name = "Carlos Valdivia", email = "vpcarlos97@gmail.com" }]
 readme = "README.md"
-license = { text = "MIT" }
-requires-python = ">=3.10,<4.0"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Django",
     "Framework :: FastAPI",
     "Framework :: Flask",
-    "License :: OSI Approved :: MIT License",
     "Intended Audience :: Developers",
-    "Intended Audience :: Information Technology",
-    "Intended Audience :: System Administrators",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
     "Programming Language :: Python",
-    "Topic :: Internet",
-    "Topic :: Software Development :: Debuggers",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Software Development :: Libraries",
-    "Topic :: Software Development :: Testing",
-    "Topic :: Software Development :: Libraries",
-    "Topic :: Software Development",
-    "Typing :: Typed",
-    "Environment :: Web Environment",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Debuggers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Testing",
+    "Topic :: System :: Monitoring",
 ]
-keywords = ["cprofile", "devtool", "perffeto", "profyle", "viztracer", "fastapi", "flask"]
+keywords = [
+    "profiling", "tracing", "performance", "bottleneck", "viztracer", "perfetto",
+    "fastapi", "flask", "django", "mcp", "claude",
+]
 dependencies = [
     "fastapi>=0.115.0",
     "jinja2>=3.1.2",
+    "pydantic>=2.0",
     "uvicorn[standard]>=0.39.0",
     "viztracer>=1.0.0",
 ]
 
 [project.urls]
+Homepage = "https://github.com/vpcarlos/profyle"
 Repository = "https://github.com/vpcarlos/profyle"
+Issues = "https://github.com/vpcarlos/profyle/issues"
+Changelog = "https://github.com/vpcarlos/profyle/blob/main/CHANGELOG.md"
 
 [project.scripts]
 profyle = "profyle.main:run"
 
 [project.optional-dependencies]
 flask = [
-    "flask>=2.0.0",
+    "flask>=3.0.0",
 ]
 django = [
     "django>=4.2.7",
@@ -55,17 +62,16 @@ fastapi = [
 ]
 # MCP server so Claude Code / Claude Desktop can query traces (`profyle mcp`)
 mcp = [
-    "mcp>=1.10.0",
+    "mcp>=2.0.0",
 ]
 
 [dependency-groups]
 dev = [
-    "autopep8>=2.0.1",
     "pytest>=7.2.1",
     "httpx>=0.23.3",
-    "flask>=2.0.0",
+    "flask>=3.0.0",
     "django>=4.2.7",
-    "mcp>=1.10.0",
+    "mcp>=2.0.0",
     "pytest-asyncio>=0.21.1",
     "ruff>=0.1.5",
 ]
@@ -74,6 +80,10 @@ dev = [
 asyncio_mode = "auto"
 
 [tool.ruff]
+line-length = 100
+fix = true
+
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -83,17 +93,15 @@ select = [
     "B",  # flake8-bugbear
     "UP",
 ]
-
 ignore = [
     # Avoid trying to fix flake8-bugbear (`B`) violations.
     "B",
     "E731",
 ]
-
-fix = true
 unfixable = []
 
-line-length = 100
+[tool.hatch.build.targets.sdist]
+exclude = [".claude-plugin", "claude-plugin", "docs/img", ".github", ".profyle", "**/profile.db"]
 
 [build-system]
 requires = ["hatchling"]

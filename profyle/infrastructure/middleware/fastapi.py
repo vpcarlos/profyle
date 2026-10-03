@@ -38,7 +38,9 @@ class ProfyleMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if self.enabled and scope["type"] == "http":
             method = scope.get("method", "").upper()
-            path = scope.get("raw_path", b"").decode("utf-8")
+            # Per the ASGI spec raw_path has no query string, but some servers and older
+            # Starlette test clients include it.
+            path = scope.get("raw_path", b"").split(b"?", 1)[0].decode("utf-8")
             query_string = scope.get("query_string", b"").decode("utf-8")
             if query_string:
                 path = f"{path}?{query_string}"

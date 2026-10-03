@@ -1,3 +1,5 @@
+import json
+
 from profyle.fastapi import ProfyleMiddleware
 from tests.unit.repository import InMemoryTraceRepository
 
@@ -63,7 +65,7 @@ def test_should_record_the_request_for_replay(fastapi_client, fastapi_app):
     assert request.method == "POST"
     assert request.path == "/items?x=1"
     assert request.base_url == "http://testserver"
-    assert request.body == '{"a":1}'
+    assert json.loads(request.body) == {"a": 1}
     assert request.headers["authorization"] == "[redacted]"
     assert request.status_code == 200
     assert request.response.content_type == "application/json"

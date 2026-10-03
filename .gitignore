@@ -137,3 +137,6 @@ profile.db
 Dockerfile
 docker*
 .DS_Store
+
+# Profyle trace data (also ignored by .profyle/.gitignore)
+.profyle/

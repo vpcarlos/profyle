@@ -6,20 +6,33 @@
  >
 </p>
 
-### Development tool for analysing and managing python traces
-[![Tests](https://github.com/vpcarlos/profyle/actions/workflows/test.yml/badge.svg)](https://github.com/vpcarlos/profyle/actions/workflows/test.yml)
+### Trace your Python web requests, find the bottleneck, fix it with Claude Code
+[![CI](https://github.com/vpcarlos/profyle/actions/workflows/ci.yml/badge.svg)](https://github.com/vpcarlos/profyle/actions/workflows/ci.yml)
 <a href="https://pypi.org/project/profyle" target="_blank">
     <img src="https://img.shields.io/pypi/v/profyle" alt="Package version">
 </a>
 <a href="https://pypi.org/project/profyle" target="_blank">
     <img src="https://img.shields.io/pypi/pyversions/profyle.svg?color=%2334D058" alt="Supported Python versions">
 </a>
+<a href="https://github.com/vpcarlos/profyle/blob/main/LICENSE" target="_blank">
+    <img src="https://img.shields.io/pypi/l/profyle" alt="License">
+</a>
+
+Profyle records a [VizTracer](https://github.com/gaogaotiantian/viztracer) trace of every
+request to your FastAPI, Flask or Django app, lets you explore it in
+[Perfetto](https://perfetto.dev), and gives Claude Code the tools to find the bottleneck,
+fix your code and prove the fix by replaying the request.
+
+> [!WARNING]
+> Profyle is a **development tool**. Tracing slows requests down and traces contain
+> source code and request data, so do not enable it in production. See
+> [SECURITY.md](SECURITY.md).
 
 ## Why do you need Profyle?
 ### Bottlenecks
 With Profyle you can easily detect where in your code you have a bottleneck, simply analyze the trace and see what function or operation is taking most of the execution time of the request
 
-### Enhance performace
+### Enhance performance
 Analyze the traces and decide which parts of your code should be improved
 
 
@@ -34,6 +47,9 @@ $ pip install profyle
 ```
 
 </div>
+
+Requires Python 3.10+. Extras: `profyle[mcp]` (Claude Code / MCP server),
+`profyle[flask]`, `profyle[django]`.
 
 ## Example
 
@@ -342,3 +358,12 @@ $ profyle mcp
 ```
 
 </div>
+
+
+## Contributing
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the development
+setup and guidelines, and [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
+Please report security issues privately as described in [SECURITY.md](SECURITY.md).
+
+## License
+Profyle is released under the [MIT License](LICENSE).
