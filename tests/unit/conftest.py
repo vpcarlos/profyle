@@ -1,4 +1,3 @@
-
 import os
 
 import pytest
@@ -13,21 +12,21 @@ def fastapi_app():
 
     router = APIRouter()
 
-    @router.post('/test-post')
+    @router.post("/test-post")
     async def test_post():
-        return {'message': 'OK'}
+        return {"message": "OK"}
 
-    @router.get('/test-get')
+    @router.get("/test-get")
     async def test_get(demo: bool = False):
-        return {'message': demo}
+        return {"message": demo}
 
-    @router.patch('/test-patch')
+    @router.patch("/test-patch")
     async def test_patch():
-        return {'message': 'OK'}
+        return {"message": "OK"}
 
-    @router.put('/test-put')
+    @router.put("/test-put")
     async def test_put():
-        return {'message': 'OK'}
+        return {"message": "OK"}
 
     app.include_router(router)
 
@@ -36,25 +35,26 @@ def fastapi_app():
 
 @pytest.fixture
 def flask_app():
-    app = Flask('flask_test', root_path=os.path.dirname(__file__))
+    app = Flask("flask_test", root_path=os.path.dirname(__file__))
     app.config.update(
         TESTING=True,
-        SECRET_KEY='test key',
+        SECRET_KEY="test key",
     )
 
-    @app.route('/test-post', methods=['POST'])
+    @app.route("/test-post", methods=["POST"])
     def test_post():
-        return 'Test'
+        return "Test"
 
-    @app.route('/test-get', methods=['GET'])
+    @app.route("/test-get", methods=["GET"])
     def test_get():
-        return 'Test'
+        return "Test"
 
-    @app.route('/test-patch', methods=['PATCH'])
+    @app.route("/test-patch", methods=["PATCH"])
     def test_patch():
-        return 'Test'
+        return "Test"
 
     yield app
+
 
 @pytest.fixture
 def flask_client(flask_app):

@@ -4,10 +4,7 @@ from tests.unit.repository import InMemoryTraceRepository
 
 def test_should_trace_all_requests(flask_client, flask_app):
     trace_repo = InMemoryTraceRepository()
-    flask_app.wsgi_app = ProfyleMiddleware(
-        flask_app.wsgi_app,
-        trace_repo=trace_repo
-    )
+    flask_app.wsgi_app = ProfyleMiddleware(flask_app.wsgi_app, trace_repo=trace_repo)
 
     flask_client.post("/test")
     flask_client.get("/test?demo=true")

@@ -189,7 +189,7 @@ class SQLiteTraceRepository(TraceRepository):
             traces.append(Trace(**trace))
         return traces
 
-    def get_trace_by_id(self, id: int, include_data: bool = True) -> Trace|None:
+    def get_trace_by_id(self, id: int, include_data: bool = True) -> Trace | None:
         self.db.row_factory = Row
         cursor = self.db.cursor()
         columns = "id, timestamp, duration, name, request, headline" + (
@@ -204,7 +204,7 @@ class SQLiteTraceRepository(TraceRepository):
                     trace_dict[column] = json.loads(trace_dict[column])
             return Trace(**trace_dict)
 
-    def get_trace_selected(self) -> int|None:
+    def get_trace_selected(self) -> int | None:
         self.db.row_factory = Row
         cursor = self.db.cursor()
         cursor.execute("SELECT trace_id FROM trace_selected where id = ?", (1,))

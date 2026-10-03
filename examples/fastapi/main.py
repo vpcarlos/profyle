@@ -1,6 +1,6 @@
 """FastAPI app with an N+1 query. No Profyle code: run it with `profyle run`.
 
-    profyle run uvicorn main:app --reload
+profyle run uvicorn main:app --reload
 """
 
 import sqlite3

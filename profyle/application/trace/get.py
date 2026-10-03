@@ -6,9 +6,9 @@ def get_all_traces(repo: TraceRepository) -> list[Trace]:
     return repo.get_all_traces()
 
 
-def get_trace_selected(repo: TraceRepository) -> int|None:
+def get_trace_selected(repo: TraceRepository) -> int | None:
     return repo.get_trace_selected()
 
 
-def get_trace_by_id(trace_id: int, repo: TraceRepository) -> Trace|None:
+def get_trace_by_id(trace_id: int, repo: TraceRepository) -> Trace | None:
     return repo.get_trace_by_id(trace_id)

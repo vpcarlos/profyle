@@ -46,8 +46,17 @@ def test_replay(project_db, monkeypatch, capsys):
     calls = []
     monkeypatch.setattr(toolkit, "replay_trace", lambda *a, **k: calls.append((a, k)) or "ok")
     out = run_cli(
-        monkeypatch, capsys, "replay", "1", "--times", "3", "-H", "Authorization: Bearer x",
-        "--base-url", "http://127.0.0.1:8000", "--allow-unsafe",
+        monkeypatch,
+        capsys,
+        "replay",
+        "1",
+        "--times",
+        "3",
+        "-H",
+        "Authorization: Bearer x",
+        "--base-url",
+        "http://127.0.0.1:8000",
+        "--allow-unsafe",
     )
 
     assert out.strip() == "ok"

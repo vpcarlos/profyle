@@ -61,11 +61,7 @@ class ProfyleMiddleware:
         self.integration.repo = repo
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if (
-            not self.integration.config.enabled
-            or scope["type"] != "http"
-            or scope.get(TRACED)
-        ):
+        if not self.integration.config.enabled or scope["type"] != "http" or scope.get(TRACED):
             await self.app(scope, receive, send)
             return
         scope[TRACED] = True

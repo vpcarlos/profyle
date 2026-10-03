@@ -24,8 +24,8 @@ class profyle:
     repo: TraceRepository
     max_stack_depth: int = -1
     min_duration: float = 0
-    pattern: str|None = None
-    tracer: VizTracer|None = None
+    pattern: str | None = None
+    tracer: VizTracer | None = None
     # Set by the middleware once the response is known (see request_capture). A callable
     # is resolved after the tracer stops, so recording the exchange (copying headers,
     # fingerprinting the response) does not show up in the trace it describes.

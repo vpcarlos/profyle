@@ -98,7 +98,9 @@ def compare_traces(before_id: int, after_id: int) -> str:
 
 @server.tool(
     annotations=ToolAnnotations(
-        read_only_hint=False, destructive_hint=False, idempotent_hint=False,
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
         open_world_hint=False,
     )
 )

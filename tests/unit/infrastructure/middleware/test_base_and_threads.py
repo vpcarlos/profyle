@@ -55,6 +55,7 @@ def test_worker_threads_give_back_a_foreign_profiler():
     tracer = VizTracer(verbose=0)
     tracer.start()
     try:
+
         def foreign(*args):
             return None
 
@@ -80,6 +81,7 @@ def test_async_tracing_is_resumed_in_a_reused_worker_thread():
     tracer = VizTracer(verbose=0)
     tracer.start()
     try:
+
         async def work():
             return 42
 

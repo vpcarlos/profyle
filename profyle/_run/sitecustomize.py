@@ -18,8 +18,7 @@ def _enable_profyle() -> None:
         from profyle.infrastructure.autoinstrument import install
     except ImportError as error:
         sys.stderr.write(
-            f"profyle ▸ tracing disabled: Profyle is not installed for {sys.executable} "
-            f"({error})\n"
+            f"profyle ▸ tracing disabled: Profyle is not installed for {sys.executable} ({error})\n"
         )
         return
     install()

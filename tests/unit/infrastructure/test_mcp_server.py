@@ -9,8 +9,14 @@ def test_tools_are_registered():
     names = {tool.name for tool in asyncio.run(mcp_server.server.list_tools())}
 
     assert names == {
-        "doctor", "list_traces", "slowest_endpoints", "analyze_trace", "get_call_details",
-        "get_function_source", "compare_traces", "replay_request",
+        "doctor",
+        "list_traces",
+        "slowest_endpoints",
+        "analyze_trace",
+        "get_call_details",
+        "get_function_source",
+        "compare_traces",
+        "replay_request",
     }
 
 
@@ -31,8 +37,13 @@ def test_unknown_trace_is_a_message_not_an_error(project_db):
 
 def test_run_starts_the_digest_worker_and_the_stdio_server(monkeypatch):
     started = []
-    monkeypatch.setattr(mcp_server.threading, "Thread", lambda target, daemon: started.append(
-        (target, daemon)) or type("T", (), {"start": lambda self: None})())
+    monkeypatch.setattr(
+        mcp_server.threading,
+        "Thread",
+        lambda target, daemon: (
+            started.append((target, daemon)) or type("T", (), {"start": lambda self: None})()
+        ),
+    )
     monkeypatch.setattr(mcp_server.server, "run", lambda transport: started.append(transport))
 
     mcp_server.run()

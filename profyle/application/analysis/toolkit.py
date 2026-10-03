@@ -207,8 +207,9 @@ def replay_trace(
             repo.update_trace_request(int(trace.id), trace.request)
         runs.append((response, trace))
 
-    return _render_replay(original, runs, missing_auth=replay.redacted_headers(request),
-                          headers=headers)
+    return _render_replay(
+        original, runs, missing_auth=replay.redacted_headers(request), headers=headers
+    )
 
 
 def _render_replay(original: Trace, runs, missing_auth: list[str], headers) -> str:
@@ -312,8 +313,11 @@ def _request_summary(trace: Trace) -> str:
     if request is None:
         return "Request: not recorded (cannot be replayed)."
     body = (
-        "body too large to record" if request.body_truncated
-        else f"body {len(request.body)} chars" if request.body else "no body"
+        "body too large to record"
+        if request.body_truncated
+        else f"body {len(request.body)} chars"
+        if request.body
+        else "no body"
     )
     replayable = "replayable" if not request.body_truncated else "not replayable"
     return (
@@ -352,33 +356,55 @@ def doctor(repo: TraceRepository) -> str:
     checks: list[tuple[bool | None, str]] = []
     db_path = settings.get_db_path()
     source = (
-        "PROFYLE_DB" if os.getenv("PROFYLE_DB")
-        else "plugin project dir" if os.getenv("PROFYLE_PROJECT_DIR")
+        "PROFYLE_DB"
+        if os.getenv("PROFYLE_DB")
+        else "plugin project dir"
+        if os.getenv("PROFYLE_PROJECT_DIR")
         else "project root found from the working directory"
     )
     traces = sorted(repo.get_all_traces(), key=lambda t: int(t.id))
     if traces:
         newest = traces[-1]
-        checks.append((True, f"Database {db_path} ({source}): {len(traces)} traces, newest "
-                             f"#{newest.id} {newest.name} at {newest.timestamp} UTC."))
+        checks.append(
+            (
+                True,
+                f"Database {db_path} ({source}): {len(traces)} traces, newest "
+                f"#{newest.id} {newest.name} at {newest.timestamp} UTC.",
+            )
+        )
     else:
-        checks.append((False, f"Database {db_path} ({source}) has no traces. Start the app "
-                              "from this project with `profyle run <command>` (for example "
-                              "`profyle run uvicorn main:app --reload`), or add "
-                              "ProfyleMiddleware, then make one request."))
+        checks.append(
+            (
+                False,
+                f"Database {db_path} ({source}) has no traces. Start the app "
+                "from this project with `profyle run <command>` (for example "
+                "`profyle run uvicorn main:app --reload`), or add "
+                "ProfyleMiddleware, then make one request.",
+            )
+        )
 
     legacy = _count_traces(settings.get_legacy_db_path())
     if legacy and settings.get_legacy_db_path() != db_path:
-        checks.append((False, f"Found {legacy} traces in the old location "
-                              f"{settings.get_legacy_db_path()}: the app is probably running an "
-                              "older Profyle. Upgrade it in the app's environment and restart."))
+        checks.append(
+            (
+                False,
+                f"Found {legacy} traces in the old location "
+                f"{settings.get_legacy_db_path()}: the app is probably running an "
+                "older Profyle. Upgrade it in the app's environment and restart.",
+            )
+        )
 
     checks += _runtime_checks(repo.get_runtime())
 
     newest_request = next((t for t in reversed(traces) if t.request), None) if traces else None
     if traces and newest_request is None:
-        checks.append((False, "Traces have no recorded request, so they cannot be replayed. "
-                              "The app runs an older Profyle: upgrade and restart it."))
+        checks.append(
+            (
+                False,
+                "Traces have no recorded request, so they cannot be replayed. "
+                "The app runs an older Profyle: upgrade and restart it.",
+            )
+        )
     elif newest_request:
         checks.append((True, "Requests are recorded, so they can be replayed."))
         checks.append(_app_reachable(newest_request.request.base_url))
@@ -406,11 +432,13 @@ def _runtime_checks(runtime: dict[str, Any] | None) -> list[tuple[bool | None, s
     ]
     if runtime.get("mode") != "profyle run":
         checks.append((None, "Tip: `profyle run <command>` traces the app without code changes."))
-    checks.append((
-        None,
-        "Make sure the app auto-reloads code changes (uvicorn --reload, flask --debug, "
-        "manage.py runserver); otherwise it must be restarted before verifying a fix.",
-    ))
+    checks.append(
+        (
+            None,
+            "Make sure the app auto-reloads code changes (uvicorn --reload, flask --debug, "
+            "manage.py runserver); otherwise it must be restarted before verifying a fix.",
+        )
+    )
     return checks
 
 
@@ -446,9 +474,11 @@ def _app_reachable(base_url: str) -> tuple[bool | None, str]:
         with socket.create_connection((host, port), timeout=1):
             return True, f"The app is running at {base_url}."
     except OSError:
-        return False, (f"Nothing is listening at {base_url}. Start the app, with auto-reload, "
-                       "e.g. `profyle run uvicorn main:app --reload`, so requests can be "
-                       "replayed.")
+        return False, (
+            f"Nothing is listening at {base_url}. Start the app, with auto-reload, "
+            "e.g. `profyle run uvicorn main:app --reload`, so requests can be "
+            "replayed."
+        )
 
 
 def summary_line(repo: TraceRepository, trace_id: int) -> str:

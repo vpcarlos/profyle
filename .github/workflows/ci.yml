@@ -29,6 +29,8 @@ jobs:
       - run: uv sync --frozen
       - name: Ruff
         run: uv run ruff check --no-fix profyle tests examples
+      - name: Ruff format
+        run: uv run ruff format --check profyle tests examples
 
   tests:
     name: tests (py${{ matrix.python }}, ${{ matrix.os }})

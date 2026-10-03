@@ -36,10 +36,7 @@ class Settings:
     )
 
     def get_path(self, *args):
-        return os.path.join(
-            self.project_dir,
-            *args
-        )
+        return os.path.join(self.project_dir, *args)
 
     def get_db_path(self) -> str:
         """Where traces live. The app, `profyle start` and the MCP server must agree.
@@ -59,11 +56,7 @@ class Settings:
         return self.get_path("profile.db")
 
     def get_viztracer_static_files(self):
-        return os.path.normpath(os.path.join(
-            os.path.abspath(viztracer.__file__),
-            "..",
-            "web_dist"
-        ))
+        return os.path.normpath(os.path.join(os.path.abspath(viztracer.__file__), "..", "web_dist"))
 
 
 settings = Settings()

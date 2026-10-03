@@ -29,9 +29,9 @@ def info():
 
     print(f"DB → {db_path}")
     if db_size_in_bytes > 1e9:
-        db_size = f"{round(db_size_in_bytes/1e9, 2)} GB"
+        db_size = f"{round(db_size_in_bytes / 1e9, 2)} GB"
     else:
-        db_size = f"{round(db_size_in_bytes/1e6, 2)} MB"
+        db_size = f"{round(db_size_in_bytes / 1e6, 2)} MB"
 
     print(f"DB size → {db_size}")
 

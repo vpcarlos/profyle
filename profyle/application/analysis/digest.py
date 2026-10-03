@@ -173,8 +173,13 @@ def _collect_repeated(
             continue
         entry = repeated.setdefault(
             (node.name, child_name),
-            {"parent": node.name, "callee": child_name, "calls": 0, "total": 0.0,
-             "sample_args": []},
+            {
+                "parent": node.name,
+                "callee": child_name,
+                "calls": 0,
+                "total": 0.0,
+                "sample_args": [],
+            },
         )
         entry["calls"] += len(calls)
         entry["total"] += sum(c.dur for c in calls)
@@ -291,9 +296,7 @@ def headline(digest: dict[str, Any]) -> str:
         return "empty trace"
     # Recursion (a function calling itself, e.g. a serializer walking a tree) is not
     # a repeated-call smell like an N+1.
-    repeated = next(
-        (r for r in digest["repeated_calls"] if r["parent"] != r["callee"]), None
-    )
+    repeated = next((r for r in digest["repeated_calls"] if r["parent"] != r["callee"]), None)
     if repeated and repeated["pct_of_total"] >= 20:
         return (
             f"repeated: {_readable(repeated['parent'], repeated.get('parent_location'))} → "
@@ -370,7 +373,7 @@ def compare_digests(before: dict[str, Any], after: dict[str, Any], top: int = 15
 
     def index(digest: dict[str, Any]) -> dict[str, dict[str, Any]]:
         rows = digest["top_self_time"] + digest["top_inclusive"] + digest["top_user_code"]
-        return {f'{r["function"]} ({r["location"]})': r for r in rows}
+        return {f"{r['function']} ({r['location']})": r for r in rows}
 
     a, b = index(before), index(after)
     deltas = []
@@ -412,7 +415,8 @@ def get_function_source(
     candidates = [name for name in functions if name == function]
     if not candidates:
         candidates = [
-            name for name in functions
+            name
+            for name in functions
             if parse_function_name(name)[0] in (function, function.split(".")[-1])
             or parse_function_name(name)[0].endswith("." + function)
         ]
@@ -435,17 +439,18 @@ def get_function_source(
     body = [lines[line - 1]] if line - 1 < len(lines) else []
     indent = len(body[0]) - len(body[0].lstrip()) if body else 0
     for text in lines[line:]:
-        if text.strip() and len(text) - len(text.lstrip()) <= indent and not text.lstrip(
-        ).startswith((")", "]", "}")):
+        if (
+            text.strip()
+            and len(text) - len(text.lstrip()) <= indent
+            and not text.lstrip().startswith((")", "]", "}"))
+        ):
             break
         body.append(text)
         if len(body) >= max_lines:
             body.append("    # … truncated")
             break
     header = lines[start : line - 1]
-    numbered = [
-        f"{start + 1 + i:>5} | {text}" for i, text in enumerate(header + body)
-    ]
+    numbered = [f"{start + 1 + i:>5} | {text}" for i, text in enumerate(header + body)]
     more = f" (+{len(candidates) - 1} other matches)" if len(candidates) > 1 else ""
     return f"# {path}:{line}{more}\n" + "\n".join(numbered).rstrip()
 
@@ -464,8 +469,9 @@ def render_digest(digest: dict[str, Any], name: str | None = None) -> str:
         f"{digest['function_count']} distinct functions · {digest['threads']} thread(s)"
     )
     origin = ", ".join(f"{k} {v} ms" for k, v in digest["time_by_origin_ms"].items())
-    out.append(f"Self time by origin: {origin}. Likely I/O/wait self time: "
-               f"{digest['io_wait_self_ms']} ms.")
+    out.append(
+        f"Self time by origin: {origin}. Likely I/O/wait self time: {digest['io_wait_self_ms']} ms."
+    )
     out.append(
         "Note: timings include VizTracer overhead (~1µs per call), so functions with very "
         "high call counts look slower than they are untraced."

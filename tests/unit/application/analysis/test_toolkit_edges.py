@@ -38,10 +38,15 @@ def test_empty_listings_explain_where_they_look():
 def test_request_summary_in_the_digest():
     repo = InMemoryTraceRepository()
     store_trace(raw_trace=make_trace(), name="GET /old", repo=repo)
-    store_trace(raw_trace=make_trace(), name="POST /a", repo=repo,
-                request=request(body="{}", body_encoding="utf-8"))
-    store_trace(raw_trace=make_trace(), name="POST /b", repo=repo,
-                request=request(body_truncated=True))
+    store_trace(
+        raw_trace=make_trace(),
+        name="POST /a",
+        repo=repo,
+        request=request(body="{}", body_encoding="utf-8"),
+    )
+    store_trace(
+        raw_trace=make_trace(), name="POST /b", repo=repo, request=request(body_truncated=True)
+    )
 
     assert "Request: not recorded (cannot be replayed)." in toolkit.analyze_trace(repo, 1)
     assert "body 2 chars · replayable" in toolkit.analyze_trace(repo, 2)
@@ -73,8 +78,12 @@ def plain_server():
 
 def test_replay_against_an_app_that_records_nothing(plain_server):
     repo = InMemoryTraceRepository()
-    store_trace(raw_trace=make_trace(), name="GET /users", repo=repo,
-                request=request(base_url=plain_server, status_code=200))
+    store_trace(
+        raw_trace=make_trace(),
+        name="GET /users",
+        repo=repo,
+        request=request(base_url=plain_server, status_code=200),
+    )
 
     result = toolkit.replay_trace(repo, 1, times=2, wait_seconds=0.3)
 
@@ -85,10 +94,22 @@ def test_replay_against_an_app_that_records_nothing(plain_server):
 
 def test_doctor_reports_the_running_app(monkeypatch):
     repo = InMemoryTraceRepository()
-    store_trace(raw_trace=make_trace(), name="GET /users", repo=repo,
-                request=request(base_url="https://api.example.com"))
-    repo.store_runtime({"framework": "FastAPI", "mode": "middleware", "pid": os.getpid(),
-                        "profyle": "0.4.0", "python": "3.11", "config": ["enabled = True"]})
+    store_trace(
+        raw_trace=make_trace(),
+        name="GET /users",
+        repo=repo,
+        request=request(base_url="https://api.example.com"),
+    )
+    repo.store_runtime(
+        {
+            "framework": "FastAPI",
+            "mode": "middleware",
+            "pid": os.getpid(),
+            "profyle": "0.4.0",
+            "python": "3.11",
+            "config": ["enabled = True"],
+        }
+    )
 
     report = toolkit.doctor(repo)
 
@@ -99,13 +120,18 @@ def test_doctor_reports_the_running_app(monkeypatch):
 
 @pytest.mark.parametrize(
     ("pid", "kill_error", "state"),
-    [(None, None, "unknown state"), (2**22 + 7, None, "not running"),
-     (1, PermissionError, "running")],
+    [
+        (None, None, "unknown state"),
+        (2**22 + 7, None, "not running"),
+        (1, PermissionError, "running"),
+    ],
 )
 def test_doctor_process_states(monkeypatch, pid, kill_error, state):
     if kill_error:
+
         def kill(pid, signal):
             raise kill_error
+
         monkeypatch.setattr(os, "kill", kill)
     repo = InMemoryTraceRepository()
     repo.store_runtime({"framework": "Flask", "mode": "profyle run", "pid": pid, "config": []})

@@ -4,4 +4,6 @@ repos:
     hooks:
       - id: ruff-check
         args: [--no-fix]
-        files: ^(profyle|tests)/
+        files: ^(profyle|tests|examples)/
+      - id: ruff-format
+        files: ^(profyle|tests|examples)/

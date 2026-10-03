@@ -21,7 +21,8 @@ $ uv sync                  # creates .venv with the dev dependencies
 $ uv run pytest            # run the test suite
 $ uv run pytest -m "not integration"   # skip the tests that start real servers
 $ uv run pytest --cov       # with coverage; fails below 100%
-$ uv run ruff check profyle tests
+$ uv run ruff check profyle tests examples
+$ uv run ruff format profyle tests examples
 ```
 
 Optionally, install the git hooks so lint runs on every commit:
@@ -87,8 +88,8 @@ The integration tests in `tests/integration/` run exactly these apps through
 ## Pull requests
 
 1. Fork the repository and create a branch from `main`.
-2. Make your change with tests, then run `uv run pytest` and
-   `uv run ruff check profyle tests`.
+2. Make your change with tests, then run `uv run pytest`,
+   `uv run ruff check` and `uv run ruff format` on `profyle tests examples`.
 3. Open a pull request and fill in the template. CI must be green before merging.
 
 ## Releasing (maintainers)

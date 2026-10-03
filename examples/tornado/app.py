@@ -1,7 +1,7 @@
 """Tornado app with an N+1 query. No Profyle code: run it with `profyle run`.
 
-    profyle run python app.py 8888                                  # Tornado's server
-    profyle run gunicorn -k tornado -b 127.0.0.1:8888 app:app       # gunicorn
+profyle run python app.py 8888                                  # Tornado's server
+profyle run gunicorn -k tornado -b 127.0.0.1:8888 app:app       # gunicorn
 """
 
 import sqlite3

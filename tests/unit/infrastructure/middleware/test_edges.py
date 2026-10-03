@@ -19,14 +19,17 @@ async def chunked_app(scope, receive, send):
         pass
     await send({"type": "http.response.start", "status": 200, "headers": []})
     for _ in range(3):
-        await send({"type": "http.response.body", "body": b"x" * (BIG_RESPONSE // 2),
-                    "more_body": True})
+        await send(
+            {"type": "http.response.body", "body": b"x" * (BIG_RESPONSE // 2), "more_body": True}
+        )
     await send({"type": "http.response.body", "body": b""})
 
 
 def call_asgi(app, scope_extra=None, chunks=(b"",)):
-    messages = [{"type": "http.request", "body": chunk, "more_body": i < len(chunks) - 1}
-                for i, chunk in enumerate(chunks)]
+    messages = [
+        {"type": "http.request", "body": chunk, "more_body": i < len(chunks) - 1}
+        for i, chunk in enumerate(chunks)
+    ]
 
     async def receive():
         return messages.pop(0)
@@ -34,8 +37,13 @@ def call_asgi(app, scope_extra=None, chunks=(b"",)):
     async def send(message):
         pass
 
-    scope = {"type": "http", "method": "POST", "path": "/upload", "headers": [],
-             "query_string": b""}
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/upload",
+        "headers": [],
+        "query_string": b"",
+    }
     scope.update(scope_extra or {})
     asyncio.run(app(scope, receive, send))
 
@@ -70,9 +78,14 @@ def wsgi_app(environ, start_response):
 
 
 def call_wsgi(middleware, **environ):
-    base = {"REQUEST_METHOD": "POST", "PATH_INFO": "/upload", "wsgi.url_scheme": "http",
-            "SERVER_NAME": "example.local", "SERVER_PORT": "8080",
-            "wsgi.input": io.BytesIO(b"")}
+    base = {
+        "REQUEST_METHOD": "POST",
+        "PATH_INFO": "/upload",
+        "wsgi.url_scheme": "http",
+        "SERVER_NAME": "example.local",
+        "SERVER_PORT": "8080",
+        "wsgi.input": io.BytesIO(b""),
+    }
     base.update(environ)
     return middleware(base, lambda status, headers: None)
 
@@ -107,8 +120,7 @@ def test_tornado_large_responses_get_no_fingerprint():
     repo = InMemoryTraceRepository()
 
     async def scenario():
-        app = instrument(tornado.web.Application([(r"/big", Big)]), trace_repo=repo,
-                         console=False)
+        app = instrument(tornado.web.Application([(r"/big", Big)]), trace_repo=repo, console=False)
         sock, port = tornado.testing.bind_unused_port()
         server = tornado.httpserver.HTTPServer(app)
         server.add_sockets([sock])

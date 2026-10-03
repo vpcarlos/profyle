@@ -37,8 +37,7 @@ async def call(app):
     async def send(message):
         pass
 
-    scope = {"type": "http", "method": "GET", "path": "/ping", "headers": [],
-             "query_string": b""}
+    scope = {"type": "http", "method": "GET", "path": "/ping", "headers": [], "query_string": b""}
     await app(scope, receive, send)
 
 
@@ -89,11 +88,12 @@ def test_django_middleware_is_inserted_once():
         def load_middleware(self):
             return list(settings.MIDDLEWARE)
 
-    autoinstrument._patch_django(fake_module("django.core.handlers.base",
-                                             BaseHandler=BaseHandler))
+    autoinstrument._patch_django(fake_module("django.core.handlers.base", BaseHandler=BaseHandler))
     with override_settings(MIDDLEWARE=["app.Middleware"]):
-        assert BaseHandler().load_middleware() == [autoinstrument.DJANGO_MIDDLEWARE,
-                                                   "app.Middleware"]
+        assert BaseHandler().load_middleware() == [
+            autoinstrument.DJANGO_MIDDLEWARE,
+            "app.Middleware",
+        ]
     with override_settings(MIDDLEWARE=["profyle.django.ProfyleMiddleware"]):
         assert BaseHandler().load_middleware() == ["profyle.django.ProfyleMiddleware"]
 
@@ -124,8 +124,11 @@ def make_uvicorn():
 
 @pytest.mark.parametrize(
     ("app", "factory", "framework"),
-    [("main:app", False, "Litestar"), ("main:create_app", True, "ASGI"),
-     ("missing:app", False, "ASGI")],
+    [
+        ("main:app", False, "Litestar"),
+        ("main:create_app", True, "ASGI"),
+        ("missing:app", False, "ASGI"),
+    ],
 )
 def test_uvicorn_wraps_other_asgi_frameworks(app, factory, framework):
     config = make_uvicorn()(app, factory)
@@ -158,11 +161,15 @@ def test_import_hook_patches_modules_after_they_load(tmp_path, monkeypatch, caps
     def broken(module):
         raise RuntimeError("unexpected framework version")
 
-    monkeypatch.setattr(autoinstrument, "PATCHES", {
-        "profyle_fake_framework": patched.append,
-        "profyle_fake_broken": broken,
-        "profyle_fake_missing": patched.append,
-    })
+    monkeypatch.setattr(
+        autoinstrument,
+        "PATCHES",
+        {
+            "profyle_fake_framework": patched.append,
+            "profyle_fake_broken": broken,
+            "profyle_fake_missing": patched.append,
+        },
+    )
     hook = autoinstrument._PostImportHook()
     monkeypatch.setattr(sys, "meta_path", [hook, *sys.meta_path])
 
@@ -196,7 +203,8 @@ def test_install_once_and_patch_frameworks_already_imported():
         "hooks = sum(isinstance(f, a._PostImportHook) for f in sys.meta_path)\n"
         "print(hooks, s.Starlette.__call__ is not original)\n"
     )
-    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
-                            check=True)
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    )
 
     assert result.stdout.split() == ["1", "True"]

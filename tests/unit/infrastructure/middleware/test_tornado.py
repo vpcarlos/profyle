@@ -44,7 +44,9 @@ async def test_traces_tornado_requests_with_request_and_response():
         for _ in range(2):
             await client.fetch(f"{base_url}/items?x=1")
         await client.fetch(
-            f"{base_url}/items", method="POST", body='{"a": 1}',
+            f"{base_url}/items",
+            method="POST",
+            body='{"a": 1}',
             headers={"Authorization": "Bearer secret", "Content-Type": "application/json"},
         )
     finally:

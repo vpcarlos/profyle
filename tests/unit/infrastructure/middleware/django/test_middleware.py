@@ -9,16 +9,15 @@ from tests.unit.repository import InMemoryTraceRepository
 
 def test_should_trace_a_request():
     os.environ.setdefault(
-        "DJANGO_SETTINGS_MODULE",
-        "tests.unit.infrastructure.middleware.django.settings"
+        "DJANGO_SETTINGS_MODULE", "tests.unit.infrastructure.middleware.django.settings"
     )
     request_factory = RequestFactory()
-    req = request_factory.get('/test?demo=1')
+    req = request_factory.get("/test?demo=1")
 
     def get_response(request):
         resp = HttpResponse()
         resp.status_code = 200
-        resp.content = b'Hello profyle!'
+        resp.content = b"Hello profyle!"
         return resp
 
     profyle = ProfyleMiddleware(get_response)
@@ -36,11 +35,12 @@ def test_should_trace_a_request():
 
 def test_should_record_the_request_for_replay():
     os.environ.setdefault(
-        "DJANGO_SETTINGS_MODULE",
-        "tests.unit.infrastructure.middleware.django.settings"
+        "DJANGO_SETTINGS_MODULE", "tests.unit.infrastructure.middleware.django.settings"
     )
     req = RequestFactory().post(
-        '/orders?x=1', data='{"a": 1}', content_type="application/json",
+        "/orders?x=1",
+        data='{"a": 1}',
+        content_type="application/json",
         HTTP_AUTHORIZATION="Bearer secret",
     )
 
@@ -71,8 +71,7 @@ async def test_should_trace_async_views_under_asgi_on_every_request():
     from profyle.application.analysis.digest import build_digest
 
     os.environ.setdefault(
-        "DJANGO_SETTINGS_MODULE",
-        "tests.unit.infrastructure.middleware.django.settings"
+        "DJANGO_SETTINGS_MODULE", "tests.unit.infrastructure.middleware.django.settings"
     )
 
     def lookup_in_pool(i):

@@ -36,9 +36,7 @@ def allow_remote() -> bool:
     return os.getenv("PROFYLE_REPLAY_ALLOW_REMOTE", "").lower() == "true"
 
 
-def check_replayable(
-    request: RecordedRequest, base_url: str, allow_unsafe_method: bool
-) -> None:
+def check_replayable(request: RecordedRequest, base_url: str, allow_unsafe_method: bool) -> None:
     if not is_local(base_url) and not allow_remote():
         raise ReplayRefused(
             f"Refusing to replay against {base_url}: only local hosts are allowed "

@@ -8,10 +8,7 @@ from profyle.settings import settings
 def get_connection() -> Connection:
     db_path = settings.get_db_path()
     ensure_data_dir(os.path.dirname(db_path))
-    db = sqlite3.connect(
-        db_path,
-        check_same_thread=False
-    )
+    db = sqlite3.connect(db_path, check_same_thread=False)
     return db
 
 

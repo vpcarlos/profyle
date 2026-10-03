@@ -19,9 +19,7 @@ Verdict = Literal["identical", "same_shape", "different", "unknown"]
 def fingerprint(body: bytes, content_type: str | None = None) -> ResponseFingerprint:
     data = _as_json(body, content_type)
     if data is _NOT_JSON:
-        return ResponseFingerprint(
-            size=len(body), content_type=content_type, sha256=_sha256(body)
-        )
+        return ResponseFingerprint(size=len(body), content_type=content_type, sha256=_sha256(body))
     canonical = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     shape = json.dumps(_skeleton(data), sort_keys=True, separators=(",", ":"))
     return ResponseFingerprint(
@@ -32,9 +30,7 @@ def fingerprint(body: bytes, content_type: str | None = None) -> ResponseFingerp
     )
 
 
-def compare(
-    before: ResponseFingerprint | None, after: ResponseFingerprint | None
-) -> Verdict:
+def compare(before: ResponseFingerprint | None, after: ResponseFingerprint | None) -> Verdict:
     if before is None or after is None:
         return "unknown"
     if before.sha256 == after.sha256:

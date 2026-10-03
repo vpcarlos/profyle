@@ -23,6 +23,11 @@ async def app(scope, receive, send):
         return
     orders = [{"order": i, "customer": get_customer(i)} for i in range(50)]
     body = json.dumps(orders).encode()
-    await send({"type": "http.response.start", "status": 200,
-                "headers": [(b"content-type", b"application/json")]})
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [(b"content-type", b"application/json")],
+        }
+    )
     await send({"type": "http.response.body", "body": body})

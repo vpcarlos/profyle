@@ -1,6 +1,6 @@
 """Flask app with an N+1 query. No Profyle code: run it with `profyle run`.
 
-    profyle run flask --app app run --debug
+profyle run flask --app app run --debug
 """
 
 import sqlite3

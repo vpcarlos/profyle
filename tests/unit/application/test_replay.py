@@ -32,9 +32,7 @@ def test_refuses_remote_hosts(monkeypatch):
 
 def test_refuses_requests_whose_body_was_not_recorded():
     with pytest.raises(replay.ReplayRefused, match="64 KB"):
-        replay.check_replayable(
-            recorded(body_truncated=True), "http://127.0.0.1:8000", False
-        )
+        replay.check_replayable(recorded(body_truncated=True), "http://127.0.0.1:8000", False)
 
 
 class QuietHandler(WSGIRequestHandler):

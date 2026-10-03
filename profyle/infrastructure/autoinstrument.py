@@ -140,9 +140,7 @@ def _patch_uvicorn(module: ModuleType) -> None:
         original(self)
         if self.loaded and not _handled_by_framework_hook(app):
             name = _app_name(app)
-            self.loaded_app = ProfyleMiddleware(
-                self.loaded_app, framework=name, mode=PROFYLE_RUN
-            )
+            self.loaded_app = ProfyleMiddleware(self.loaded_app, framework=name, mode=PROFYLE_RUN)
             _announce(name, self.loaded_app.integration)
 
     config.load = load
@@ -156,7 +154,7 @@ def _import_or_none(module: ModuleType, path: str):
 
 
 def _app_name(app) -> str:
-    """"Litestar", "Quart"... or "ASGI" for plain functions and factories."""
+    """ "Litestar", "Quart"... or "ASGI" for plain functions and factories."""
     if app is None:
         return "ASGI"
     cls = app if isinstance(app, type) else type(app)

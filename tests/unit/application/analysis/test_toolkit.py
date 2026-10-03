@@ -32,4 +32,3 @@ def test_analyze_and_drill_down(repo):
 def test_unknown_trace(repo):
     with pytest.raises(toolkit.TraceNotFound):
         toolkit.analyze_trace(repo, 123)
-

@@ -32,9 +32,7 @@ def test_ready_when_app_is_listening():
         raw_trace={"traceEvents": []},
         name="GET /orders",
         repo=repo,
-        request=RecordedRequest(
-            method="GET", path="/orders", base_url=f"http://127.0.0.1:{port}"
-        ),
+        request=RecordedRequest(method="GET", path="/orders", base_url=f"http://127.0.0.1:{port}"),
     )
 
     try:
