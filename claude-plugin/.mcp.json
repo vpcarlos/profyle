@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "profyle": {
+      "command": "${PROFYLE_COMMAND:-profyle}",
+      "args": ["mcp"],
+      "env": {
+        "PROFYLE_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}"
+      }
+    }
+  }
+}

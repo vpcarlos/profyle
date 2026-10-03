@@ -1,0 +1,15 @@
+{
+  "name": "profyle",
+  "description": "Claude Code plugin for Profyle: fix slow Python endpoints from real traces.",
+  "owner": {
+    "name": "Carlos Valdivia",
+    "email": "vpcarlos97@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "profyle",
+      "source": "./claude-plugin",
+      "description": "Find and fix slow endpoints from real Profyle traces, verified by replaying the request."
+    }
+  ]
+}

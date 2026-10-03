@@ -20,7 +20,13 @@ class Settings:
 
     def get_db_path(self) -> str:
         # PROFYLE_DB lets each project (and its MCP server) keep its own traces.
-        return os.getenv("PROFYLE_DB") or self.get_path("profile.db")
+        if os.getenv("PROFYLE_DB"):
+            return os.environ["PROFYLE_DB"]
+        # Set by the Claude Code plugin, whose MCP server runs from the plugin directory.
+        project_dir = os.getenv("PROFYLE_PROJECT_DIR")
+        if project_dir and os.path.exists(os.path.join(project_dir, "profile.db")):
+            return os.path.join(project_dir, "profile.db")
+        return self.get_path("profile.db")
 
     def get_viztracer_static_files(self):
         return os.path.normpath(os.path.join(

@@ -46,3 +46,27 @@ def test_should_no_trace_if_disabled(flask_client, flask_app):
     flask_client.get("/test?demo=true")
 
     assert len(trace_repo.traces) == 0
+
+
+def test_should_record_the_request_and_keep_the_body_readable(flask_app):
+    from flask import request
+
+    bodies = []
+
+    @flask_app.route("/echo", methods=["POST"])
+    def echo():
+        bodies.append(request.get_data())
+        return "created", 201
+
+    trace_repo = InMemoryTraceRepository()
+    flask_app.wsgi_app = ProfyleMiddleware(flask_app.wsgi_app, trace_repo=trace_repo)
+
+    flask_app.test_client().post("/echo?x=1", data=b"payload", content_type="text/plain")
+
+    assert bodies == [b"payload"]
+    request_info = trace_repo.traces[0].request
+    assert request_info.method == "POST"
+    assert request_info.path == "/echo?x=1"
+    assert request_info.body == "payload"
+    assert request_info.headers["content-type"] == "text/plain"
+    assert request_info.status_code == 201

@@ -50,6 +50,29 @@ def analyze(trace_id: int | None) -> None:
         print(error)
 
 
+def replay(args: argparse.Namespace) -> None:
+    from profyle.application.analysis import toolkit
+
+    headers = {}
+    for header in args.header or []:
+        name, _, value = header.partition(":")
+        headers[name.strip()] = value.strip()
+    repo = SQLiteTraceRepository(get_connection())
+    try:
+        print(
+            toolkit.replay_trace(
+                repo,
+                args.trace_id,
+                times=args.times,
+                base_url=args.base_url,
+                headers=headers or None,
+                allow_unsafe_method=args.allow_unsafe,
+            )
+        )
+    except toolkit.TraceNotFound as error:
+        print(error)
+
+
 def mcp() -> None:
     try:
         from profyle.infrastructure.mcp_server import run as run_mcp_server
@@ -82,6 +105,20 @@ def main():
         "trace_id", type=int, nargs="?", help="Trace id (defaults to the selected trace)"
     )
 
+    # replay
+    parser_replay = subparsers.add_parser(
+        "replay", help="Send the request of a trace again and record a new trace"
+    )
+    parser_replay.add_argument("trace_id", type=int, help="Trace id")
+    parser_replay.add_argument("--times", type=int, default=1, help="Number of replays")
+    parser_replay.add_argument("--base-url", help="e.g. http://127.0.0.1:8000")
+    parser_replay.add_argument(
+        "-H", "--header", action="append", help="Extra header, e.g. 'Authorization: Bearer x'"
+    )
+    parser_replay.add_argument(
+        "--allow-unsafe", action="store_true", help="Allow POST/PUT/PATCH/DELETE"
+    )
+
     # mcp
     subparsers.add_parser("mcp", help="Run the MCP server (stdio) for Claude Code / Desktop")
 
@@ -97,6 +134,8 @@ def main():
         info()
     elif args.command == "analyze":
         analyze(args.trace_id)
+    elif args.command == "replay":
+        replay(args)
     elif args.command == "mcp":
         mcp()
     else:

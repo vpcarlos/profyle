@@ -1,5 +1,5 @@
 import time
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, computed_field, model_serializer
@@ -74,12 +74,26 @@ class TraceData(BaseModel):
     )
 
 
+class RecordedRequest(BaseModel):
+    """The HTTP request that produced a trace, kept so it can be replayed."""
+
+    method: str
+    path: str = Field(..., description="Path including the query string")
+    base_url: str = Field(..., description="scheme://host[:port] the app was reached at")
+    headers: dict[str, str] = {}
+    body: str | None = None
+    body_encoding: Literal["utf-8", "base64"] | None = None
+    body_truncated: bool = False
+    status_code: int | None = None
+
+
 class Trace(BaseModel):
     name: str
     id: int | str = Field(description="The id of the trace")
     timestamp: str = ""
     duration: float = 0
     data: dict[Any, Any] | None = None
+    request: RecordedRequest | None = None
 
 
 class TraceCreate(BaseModel):
@@ -90,6 +104,7 @@ class TraceCreate(BaseModel):
     )
     raw_trace: dict[Any, Any]
     name: str
+    request: RecordedRequest | None = None
     timestamp: str = Field(
         description="The timestamp of the trace",
         default_factory=lambda: str(time.time()),

@@ -151,31 +151,74 @@ INFO:     Application startup complete.
 
 
 
-## AI analysis with Claude
-A single traced request easily holds 100k+ VizTracer events (tens of MB), far more than a
-model can read. Profyle condenses each trace into a **digest** of a few KB: critical path
-per thread, top self time, your own code by inclusive time, I/O wait and repeated calls
-from the same caller (N+1 candidates), each with `file:line`.
+## Fix slow endpoints with Claude Code
+Tell Claude Code *"GET /orders is slow"* and it finds the bottleneck in the real trace,
+fixes your code, replays the same request and shows you the before/after.
 
-### Claude Code / Claude Desktop (MCP)
+### 1. Install
 ```console
 $ pip install "profyle[mcp]"
-$ claude mcp add profyle -e PROFYLE_DB=$PWD/profile.db -- profyle mcp
 ```
-Then ask Claude Code *"why is GET /users slow? fix it"*. It gets read-only tools
-(`slowest_endpoints`, `list_traces`, `analyze_trace`, `get_call_details`,
-`get_function_source`, `compare_traces`) and, since it already has your repository open,
-can go from trace to code change, and verify the fix by comparing a new trace.
+Add `ProfyleMiddleware` to your app (see [Example](#example)) and run it with the
+database in your project root, so Claude Code reads the same traces:
+```console
+$ PROFYLE_DB=$PWD/profile.db uvicorn main:app --reload
+```
 
-### Any LLM / scripts
+### 2. Add the Claude Code plugin
+```console
+$ claude plugin marketplace add vpcarlos/profyle
+$ claude plugin install profyle@profyle
+```
+The plugin bundles the `profyle` MCP server and the `fix-slow-endpoint` skill, which
+Claude uses automatically when you mention a slow endpoint (or run
+`/profyle:fix-slow-endpoint`). It starts `profyle` from your `PATH`; if that is not your
+project's environment, set `PROFYLE_COMMAND=/path/to/.venv/bin/profyle`.
+
+Without the plugin, register just the MCP server:
+`claude mcp add profyle -e PROFYLE_DB=$PWD/profile.db -- profyle mcp`
+
+### 3. Ask
+Hit the slow endpoint once, then ask Claude Code about it. The skill makes it:
+1. take a warm baseline by replaying the request (`replay_request`);
+2. read the trace **digest**: critical path per thread, top self time, your own code, I/O
+   wait and repeated calls from the same caller (N+1 candidates), each with `file:line`.
+   A traced request easily holds 100k+ VizTracer events; the digest is a few KB;
+3. drill into the suspicious functions and read your code;
+4. fix it, replay the request and `compare_traces` before/after, checking the status
+   code did not change;
+5. report root cause, change and measured improvement.
+
+| MCP tool | |
+|---|---|
+| `slowest_endpoints` | Endpoints ranked by p95 |
+| `list_traces` | Recorded traces, filterable by name and duration |
+| `analyze_trace` | Bottleneck digest of a trace |
+| `get_call_details` | Callers, callees, slowest calls with args and return values |
+| `get_function_source` | Source of a function as it was when traced |
+| `replay_request` | Send the traced request again, return the new traces |
+| `compare_traces` | Before/after deltas |
+
+### Replay safety
+- Profyle stores the request behind each trace (method, path, headers, body up to 64 KB,
+  response status). `Authorization`, `Cookie`, API key and CSRF headers are stored as
+  `[redacted]` unless `PROFYLE_CAPTURE_SECRETS=true`; pass credentials when replaying
+  instead (`-H` in the CLI, `headers` in the MCP tool).
+- Only local hosts are replayed unless `PROFYLE_REPLAY_ALLOW_REMOTE=true`.
+- `POST`/`PUT`/`PATCH`/`DELETE` are only replayed with explicit permission
+  (`--allow-unsafe` / `allow_unsafe_method`); the skill asks you first.
+
+### Without Claude Code
 ```console
 $ profyle analyze 42 | claude -p "Find the bottleneck and propose a fix"
+$ profyle replay 42 --times 3
 ```
 
 ### Trace database
 Traces are stored in a SQLite file inside the installed package by default. Set
-`PROFYLE_DB=/path/to/profile.db` (in the app **and** for `profyle start` / `profyle mcp`)
-to keep one database per project.
+`PROFYLE_DB=/path/to/profile.db` in the app **and** for `profyle start` / `profyle mcp`
+to keep one database per project. The plugin also finds `<project>/profile.db`
+automatically.
 
 ## CLI Commands
 ### start
@@ -231,6 +274,24 @@ DB size → 30.0 MB
 
 ```console
 $ profyle analyze 42
+```
+
+</div>
+
+### replay
+* Send the request of a trace again (local app) and record a new trace
+
+| Options | Type | Default | Description |
+| --- | --- | --- | --- |
+| --times | INTEGER | 1 | Number of replays |
+| --base-url | TEXT | recorded host | Where the app listens, e.g. `http://127.0.0.1:8000` |
+| -H, --header | TEXT | | Extra header, repeatable, e.g. `'Authorization: Bearer x'` |
+| --allow-unsafe | FLAG | | Allow POST/PUT/PATCH/DELETE |
+
+<div class="termy">
+
+```console
+$ profyle replay 42 --times 3
 ```
 
 </div>

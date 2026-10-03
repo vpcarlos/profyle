@@ -59,12 +59,44 @@ Determinista, sin LLM, testeado (`tests/unit/application/analysis`).
 ### 3.2 Servidor MCP (`profyle mcp`)
 `claude mcp add profyle -e PROFYLE_DB=$PWD/profile.db -- profyle mcp`
 
-Seis herramientas de solo lectura (`read_only_hint`) y un prompt `diagnose`. Es la pieza
+Seis herramientas de solo lectura (`read_only_hint`) más `replay_request`. Es la pieza
 de mayor valor: Claude Code combina las trazas con el repositorio, edita el código y
 verifica con `compare_traces`. Probado de extremo a extremo con un cliente MCP real sobre
 stdio.
 
-### 3.3 Otros
+### 3.3 Replay (`profyle replay`, `replay_request`)
+Cada traza guarda la petición que la produjo: método, ruta, cabeceras, cuerpo de hasta
+64 KB y el status de la respuesta. Así Claude puede repetirla después de un cambio y
+comparar sin pedirle nada al usuario.
+- **Credenciales redactadas por defecto** (`Authorization`, `Cookie`, API keys, CSRF);
+  se pueden pasar al repetir o guardar con `PROFYLE_CAPTURE_SECRETS=true`.
+- **Solo hosts locales** (`PROFYLE_REPLAY_ALLOW_REMOTE=true` para cambiarlo).
+- **POST/PUT/PATCH/DELETE** solo con permiso explícito (`allow_unsafe_method`).
+- Espera a que se guarde la traza nueva, devuelve sus ids y la mediana, y **avisa si el
+  status cambia** (un "arreglo" que devuelve 500 no es un arreglo).
+
+Al probarlo con uvicorn real apareció un fallo de fondo: en Python < 3.12, VizTracer solo
+engancha los hilos creados mientras traza. Los endpoints síncronos de FastAPI corren en
+un pool de hilos reutilizado, así que **a partir de la segunda petición su código era
+invisible**. Se corrige activando el tracing en el hilo del pool mientras dura la
+petición (`middleware/threadpool.py`); en 3.12+ no hace falta (`sys.monitoring`).
+
+### 3.4 Plugin de Claude Code (`claude-plugin/`)
+`claude plugin marketplace add vpcarlos/profyle` y
+`claude plugin install profyle@profyle`.
+
+Incluye el servidor MCP y la skill `fix-slow-endpoint`, que Claude invoca solo cuando el
+usuario menciona un endpoint lento. Recorre seis pasos: encontrar las trazas, tomar una
+línea base templada (evitando el warm-up de la primera petición), diagnosticar, arreglar
+sin cambiar la respuesta, verificar con replay + `compare_traces` y reportar.
+
+**Prueba real** (Claude Code en modo headless con el plugin, contra una app FastAPI con
+un N+1; prompt: *"GET /orders is slow, can you fix it?"*). Sin intervención humana:
+skill → `list_traces` → `replay_request` ×3 (línea base) → `analyze_trace` → lectura
+del código → batch query → `replay_request` ×3 → `compare_traces`.
+**240 ms → 22–38 ms**, status 200 sin cambios, 12 turnos y unos 0,19 USD.
+
+### 3.5 Otros
 - `profyle analyze <id>`: digest por stdout, para usar con `| claude -p "..."` o en CI.
 - `PROFYLE_DB`: una base de datos por proyecto (antes vivía dentro de `site-packages`).
 - El SDK de MCP es un extra opcional (`profyle[mcp]`): el middleware sigue siendo
@@ -76,15 +108,14 @@ stdio.
 
 ## 4. Hoja de ruta propuesta (por impacto/esfuerzo)
 
-### Fase 1: hacer que el ciclo se cierre solo
-1. **`profyle replay <id>`**: guardar método, ruta, cuerpo y cabeceras saneadas para
-   que Claude pueda repetir la petición tras un cambio y llamar a `compare_traces` sin
-   intervención humana. Es lo que convierte el diagnóstico en *arreglo verificado*.
-2. **Plugin de Claude Code** que empaquete el MCP + una skill `/profyle:diagnose` con el
-   flujo recomendado (elegir traza representativa, profundizar, proponer cambio,
-   repetir y verificar).
-3. **Precalcular el digest al guardar** (columna `digest` en SQLite): listados y MCP
+### Fase 1: verificación más fiable
+1. **Comparar también la respuesta**: guardar un hash del cuerpo de la respuesta y
+   comprobarlo al repetir la petición, para garantizar que el arreglo no cambió los
+   datos devueltos. Es lo único que el agente no pudo verificar en la prueba real.
+2. **Precalcular el digest al guardar** (columna `digest` en SQLite): listados y MCP
    instantáneos, y permite filtrar por "trazas con N+1" sin abrir los blobs.
+3. **Hilos de Django ASGI** (`sync_to_async` de asgiref): el mismo problema de pool de
+   hilos que se arregló para FastAPI/Starlette.
 
 ### Fase 2: detectores deterministas (sin LLM, baratos y fiables)
 4. **N+1 de SQL real**: los argumentos de `cursor.execute` ya se graban; normalizar el

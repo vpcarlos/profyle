@@ -32,10 +32,16 @@ class SQLiteTraceRepository(TraceRepository):
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
                 data JSON NOT NULL,
                 duration REAL NOT NULL,
-                name VARCHAR(64) NOT NULL
+                name VARCHAR(64) NOT NULL,
+                request JSON
             );
             """
         )
+        # Databases created by older versions have no `request` column.
+        columns = {row[1] for row in cursor.execute("PRAGMA table_info(traces)")}
+        if "request" not in columns:
+            cursor.execute("ALTER TABLE traces ADD COLUMN request JSON")
+            self.db.commit()
 
     def delete_all_traces(self) -> int:
         cursor = self.db.cursor()
@@ -91,13 +97,14 @@ class SQLiteTraceRepository(TraceRepository):
 
             insert_query = """
                 INSERT INTO traces
-                ( data, duration, name) VALUES (?, ?, ?)
+                ( data, duration, name, request) VALUES (?, ?, ?, ?)
             """
 
             data_tuple = (
                 json.dumps(trace.raw_trace),
                 trace.duration,
                 trace.name,
+                trace.request.model_dump_json() if trace.request else None,
             )
             cursor.execute(insert_query, data_tuple)
             self.db.commit()
@@ -127,8 +134,9 @@ class SQLiteTraceRepository(TraceRepository):
         trace = cursor.fetchone()
         if trace:
             trace_dict = dict(trace)
-            if isinstance(trace_dict.get("data"), str):
-                trace_dict["data"] = json.loads(trace_dict["data"])
+            for column in ("data", "request"):
+                if isinstance(trace_dict.get(column), str):
+                    trace_dict[column] = json.loads(trace_dict[column])
             return Trace(**trace_dict)
 
     def get_trace_selected(self) -> int|None:

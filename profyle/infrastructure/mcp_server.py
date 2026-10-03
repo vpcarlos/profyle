@@ -21,8 +21,9 @@ server = MCPServer(
         "Profyle records VizTracer traces of HTTP requests (FastAPI, Flask, Django). "
         "Start with slowest_endpoints or list_traces, then analyze_trace on one trace id. "
         "Drill down with get_call_details and get_function_source, then read and change "
-        "the user's code. After a fix, ask the user to replay the request and use "
-        "compare_traces to verify the improvement. Durations are in milliseconds."
+        "the user's code. After a fix, use replay_request to send the same request again "
+        "and compare_traces to verify the improvement. Never replay POST/PUT/PATCH/DELETE "
+        "without the user's explicit permission. Durations are in milliseconds."
     ),
 )
 
@@ -82,16 +83,33 @@ def compare_traces(before_id: int, after_id: int) -> str:
     return _safe(toolkit.compare_traces, before_id, after_id)
 
 
-@server.prompt()
-def diagnose(endpoint: str = "") -> str:
-    """Find the bottleneck of an endpoint (or the slowest one) and propose a fix."""
-    target = f"the endpoint `{endpoint}`" if endpoint else "the slowest endpoint"
-    return (
-        f"Use the profyle tools to diagnose {target}. Pick a representative slow trace, "
-        "analyze it, drill into the functions that dominate the critical path, and read "
-        "the relevant source in this repository. Report the root cause with evidence "
-        "(ms, call counts, file:line) and propose a concrete code change, ranked by "
-        "expected impact."
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False, destructive_hint=False, idempotent_hint=False,
+        open_world_hint=False,
+    )
+)
+def replay_request(
+    trace_id: int,
+    times: int = 1,
+    base_url: str = "",
+    headers: dict[str, str] | None = None,
+    allow_unsafe_method: bool = False,
+) -> str:
+    """Send the HTTP request recorded in a trace again (to the local app) and return the
+    new trace ids, so a fix can be verified with compare_traces.
+
+    Args:
+        trace_id: Trace whose request should be replayed.
+        times: How many times to send it (1-10); use 3+ to get a stable median.
+        base_url: Override where the app listens, e.g. "http://127.0.0.1:8000".
+        headers: Extra headers, e.g. credentials the user provided (auth headers and
+            cookies are redacted when recording).
+        allow_unsafe_method: Required for POST/PUT/PATCH/DELETE. Only set it after the
+            user explicitly agreed, since the request may modify data.
+    """
+    return _safe(
+        toolkit.replay_trace, trace_id, times, base_url or None, headers, allow_unsafe_method
     )
 
 

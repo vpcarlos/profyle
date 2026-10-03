@@ -1,5 +1,4 @@
 import time
-from uuid import uuid4
 
 from profyle.domain.trace import Trace, TraceCreate
 from profyle.domain.trace_repository import TraceRepository
@@ -32,11 +31,12 @@ class InMemoryTraceRepository(TraceRepository):
 
     def store_trace(self, new_trace: TraceCreate) -> None:
         trace = Trace(
-            id=uuid4().int,
+            id=len(self.traces) + 1,
             timestamp=str(time.time()),
             data=new_trace.raw_trace,
             duration=new_trace.duration,
             name=new_trace.name,
+            request=new_trace.request,
         )
         self.traces.append(trace)
 
