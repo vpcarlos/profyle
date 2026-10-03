@@ -14,6 +14,10 @@ from profyle.infrastructure.middleware.threadpool import trace_worker_threads
 MIDDLEWARE = "middleware"
 PROFYLE_RUN = "profyle run"
 
+# Traces are stored after the response, in a background thread (tests turn this off to
+# read traces right after a request).
+STORE_IN_BACKGROUND = True
+
 # Marks a request as traced (in the ASGI scope, WSGI environ or Django META) so nested
 # integrations, e.g. an explicit middleware plus `profyle run`, trace it only once.
 TRACED = "profyle.traced"
@@ -65,6 +69,7 @@ class Integration:
             min_duration=self.config.min_duration,
             on_stored=self._console_callback(),
             on_busy=lambda: self._say_busy(name),
+            store_in_background=STORE_IN_BACKGROUND,
         )
 
     def _say_busy(self, name: str) -> None:

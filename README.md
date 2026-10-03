@@ -198,6 +198,8 @@ VizTracer records one trace at a time per process. A request that arrives while 
 one is being traced is served normally but not traced (the console says so), and work
 done by overlapping requests on the same thread can show up in the trace being
 recorded. Profyle is meant for requests you make one at a time while developing.
+Traces are saved in a background thread after the response is sent, so the request
+does not wait for it.
 
 ## Configuration
 Every integration reads the same settings. Each one comes from, in order of priority:

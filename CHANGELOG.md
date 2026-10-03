@@ -49,6 +49,10 @@ All notable changes to this project are documented here. The format follows
   middlewares; middleware settings default to `None` (unset) so the configuration
   sources above apply.
 - The trace viewer no longer sends permissive CORS headers.
+- Traces are saved in a background thread after the response is sent: the request no
+  longer waits for the trace to be parsed and written, and an async server's event loop
+  is no longer blocked by it. At most two traces wait to be saved; requests beyond that
+  are served untraced, like concurrent ones.
 - `profyle analyze` without an id analyzes the newest trace. The trace opened in the
   viewer is remembered by the viewer instead of the database.
 - Listing and searching traces is done in the database instead of loading every trace,

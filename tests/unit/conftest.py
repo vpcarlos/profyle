@@ -6,6 +6,14 @@ from fastapi.testclient import TestClient
 from flask import Flask
 
 
+@pytest.fixture(autouse=True)
+def store_traces_before_the_response(monkeypatch):
+    """Middlewares store traces in a background thread; tests read them right away."""
+    from profyle.infrastructure.middleware import base
+
+    monkeypatch.setattr(base, "STORE_IN_BACKGROUND", False)
+
+
 @pytest.fixture
 def fastapi_app():
     app = FastAPI()
