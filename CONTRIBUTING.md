@@ -46,7 +46,7 @@ The integration tests in `tests/integration/` run exactly these apps through
 | Path | What lives there |
 |---|---|
 | `profyle/config.py` | Settings shared by every integration (environment, code, `[tool.profyle]`) |
-| `profyle/infrastructure/middleware/` | Generic ASGI and WSGI middlewares (FastAPI and Flask are aliases), Django middleware, shared `base.py`; `threadpool.py` makes worker threads traceable on Python < 3.12 |
+| `profyle/infrastructure/middleware/` | Generic ASGI and WSGI middlewares (FastAPI and Flask are aliases), Django middleware, Tornado integration, shared `base.py`; `threadpool.py` makes worker threads traceable on Python < 3.12 |
 | `profyle/infrastructure/autoinstrument.py`, `profyle/_run/` | `profyle run`: import hooks that add the middleware when a framework loads |
 | `profyle/infrastructure/console.py` | One line per traced request, built in a separate process |
 | `examples/` | One app per framework with an N+1 query, used by the integration tests |
@@ -66,7 +66,8 @@ The integration tests in `tests/integration/` run exactly these apps through
   and `sys.monitoring` from 3.12, so tracing changes should be checked on both sides.
 - **Dependency floors:** CI also runs the tests with the lowest versions allowed in
   `pyproject.toml` (`uv sync --resolution lowest-direct`). If you need a newer
-  dependency feature, raise the floor.
+  dependency feature, raise the floor. To reproduce it locally, note that this command
+  also rewrites `uv.lock`: restore it afterwards with `git checkout uv.lock && uv sync`.
 - **No overhead in the traced app:** work that is not needed to record a request (for
   example analysis) belongs on the reading side (CLI, MCP server), not in the
   middleware.

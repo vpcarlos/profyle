@@ -1,6 +1,6 @@
 ---
 name: fix-slow-endpoint
-description: Diagnose and fix a slow endpoint or request in a Python web app (FastAPI, Flask, Django, any ASGI/WSGI framework) using real Profyle/VizTracer traces, then prove the fix by replaying the request and comparing traces. Use when the user says an endpoint, API call, page or request is slow, has high latency, times out, or asks where a bottleneck is.
+description: Diagnose and fix a slow endpoint or request in a Python web app (FastAPI, Flask, Django, Tornado, any ASGI/WSGI framework) using real Profyle/VizTracer traces, then prove the fix by replaying the request and comparing traces. Use when the user says an endpoint, API call, page or request is slow, has high latency, times out, or asks where a bottleneck is.
 ---
 
 # Fix a slow endpoint with Profyle traces
@@ -30,8 +30,8 @@ If there are no traces or the app is not running, get the app running under Prof
    `flask --app app run --debug`, `python manage.py runserver`.
 3. Propose the command prefixed with `profyle run`, for example
    `profyle run uvicorn main:app --reload`, and ask the user to confirm it (and the port).
-   `profyle run` adds tracing to FastAPI, Starlette, Flask, Django and any ASGI app
-   served by uvicorn. If the app already uses `ProfyleMiddleware`, run the command as is.
+   `profyle run` adds tracing to FastAPI, Starlette, Flask, Django, Tornado (also under
+   gunicorn's tornado worker) and any ASGI app served by uvicorn. If the app already uses `ProfyleMiddleware`, run the command as is.
 4. With the user's agreement, start it as a background process so it keeps running.
    It prints `profyle ▸ tracing requests ...` at start-up, then one line per request with
    the trace id and its main finding (`profyle ▸ GET /orders 245 ms · #12 · repeated:

@@ -8,6 +8,7 @@ middleware to the app when the framework is loaded:
 - FastAPI / Starlette: around the middleware stack the app builds;
 - Flask: around `app.wsgi_app`;
 - Django (WSGI and ASGI): first in MIDDLEWARE;
+- Tornado (its own server or gunicorn's tornado worker): around each request handler;
 - any other ASGI app served by uvicorn (Litestar, Quart, plain ASGI...): around the app.
 
 An app that already uses a Profyle middleware explicitly keeps it (with its own
@@ -176,7 +177,17 @@ def _handled_by_framework_hook(app) -> bool:
     return False
 
 
+# --- Tornado ------------------------------------------------------------------------
+
+
+def _patch_tornado(module: ModuleType) -> None:
+    from profyle.infrastructure.middleware.tornado import enable_auto
+
+    enable_auto()
+
+
 PATCHES = {
+    "tornado.web": _patch_tornado,
     "starlette.applications": _patch_starlette,
     "flask.app": _patch_flask,
     "django.core.handlers.base": _patch_django,

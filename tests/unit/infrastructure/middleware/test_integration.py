@@ -78,3 +78,45 @@ def test_importing_middlewares_does_not_touch_the_database(tmp_path):
     subprocess.run([sys.executable, "-c", code], cwd=tmp_path, check=True)
 
     assert not (tmp_path / ".profyle").exists()
+
+
+async def test_concurrent_requests_do_not_corrupt_each_other():
+    """VizTracer records one trace per process: a request arriving while another one is
+    traced passes through untraced instead of overwriting the running tracer."""
+    import asyncio
+
+    import httpx
+
+    from profyle.application.analysis.digest import build_digest
+
+    def work_a():
+        return sum(range(1000))
+
+    app = FastAPI()
+
+    @app.get("/a")
+    async def a():
+        await asyncio.sleep(0.05)
+        work_a()
+        await asyncio.sleep(0.05)
+        work_a()
+        return {}
+
+    @app.get("/b")
+    async def b():
+        await asyncio.sleep(0.02)
+        return {}
+
+    repo = InMemoryTraceRepository()
+    asgi = ASGIMiddleware(app, trace_repo=repo)
+    transport = httpx.ASGITransport(app=asgi)
+    async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
+        responses = await asyncio.gather(client.get("/a"), client.get("/b"))
+
+    assert [r.status_code for r in responses] == [200, 200]
+    assert [t.name for t in repo.traces] == ["GET /a"]
+    calls = {
+        row["function"].rsplit(".", 1)[-1]: row["calls"]
+        for row in build_digest(repo.traces[0].data, top=1000)["top_inclusive"]
+    }
+    assert calls.get("work_a") == 2, calls

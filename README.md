@@ -23,7 +23,7 @@
 </a>
 </p>
 
-Profyle traces the requests of your **FastAPI, Flask or Django** app with
+Profyle traces the requests of your **FastAPI, Flask, Django or Tornado** app with
 [VizTracer](https://github.com/gaogaotiantian/viztracer) and gives Claude Code what it
 needs to find the bottleneck, fix your code and **prove** the fix by replaying the same
 request.
@@ -110,6 +110,7 @@ Put `profyle run` in front of the command that starts your dev server:
 $ profyle run uvicorn main:app --reload            # FastAPI, Starlette, any ASGI app
 $ profyle run flask --app app run --debug          # Flask
 $ profyle run python manage.py runserver           # Django (WSGI)
+$ profyle run gunicorn -k tornado app:app          # Tornado (or: profyle run python app.py)
 $ profyle run uvicorn mysite.asgi:application      # Django (ASGI)
 ```
 
@@ -121,9 +122,9 @@ profyle ▸ GET /orders 543.3 ms · #1 · repeated: getblock → _tokenize ×44 
 profyle ▸ GET /orders 123.8 ms · #2 · repeated: list_orders → get_customer ×50 (87.1%)
 ```
 
-`profyle run` adds the middleware when your framework loads: FastAPI/Starlette, Flask
-and Django under any server, plus any other ASGI framework (Litestar, Quart, …) served
-by uvicorn. For other combinations, add the middleware yourself.
+`profyle run` adds the middleware when your framework loads: FastAPI/Starlette, Flask,
+Django and Tornado under any server, plus any other ASGI framework (Litestar, Quart, …)
+served by uvicorn. For other combinations, add the middleware yourself.
 
 ### With a middleware
 <details markdown="1" open>
@@ -164,6 +165,18 @@ MIDDLEWARE = [
 </details>
 
 <details markdown="1">
+<summary>Tornado</summary>
+
+```python
+import tornado.web
+from profyle.tornado import instrument
+
+app = instrument(tornado.web.Application([(r"/orders", OrdersHandler)]))
+```
+Works with Tornado's own server and with gunicorn's tornado worker.
+</details>
+
+<details markdown="1">
 <summary>Any ASGI or WSGI framework (Litestar, Quart, Falcon, Bottle, Pyramid…)</summary>
 
 ```python
@@ -177,6 +190,11 @@ app = ProfyleMiddleware(app)
 
 An explicit middleware takes precedence over `profyle run`, so you can keep it and
 still use `profyle run`.
+
+VizTracer records one trace at a time per process. A request that arrives while another
+one is being traced is served normally but not traced (the console says so), and work
+done by overlapping requests on the same thread can show up in the trace being
+recorded. Profyle is meant for requests you make one at a time while developing.
 
 ## Configuration
 Every integration reads the same settings. Each one comes from, in order of priority:

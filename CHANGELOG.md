@@ -16,6 +16,8 @@ All notable changes to this project are documented here. The format follows
 - **One line per traced request in the console** with its main finding, computed in a
   separate process so requests do not wait for it (`console` setting).
 - **Generic middlewares** `profyle.asgi` and `profyle.wsgi` for any ASGI/WSGI framework.
+- **Tornado support** (#6): `profyle.tornado.instrument(app)`, and `profyle run` for
+  Tornado's own server and gunicorn's tornado worker (extra `profyle[tornado]`).
 - **Unified configuration** for every integration: environment variables, code, or
   `[tool.profyle]` in `pyproject.toml`; `profyle doctor` shows each value and its source,
   plus the app that is writing traces.
@@ -47,6 +49,15 @@ All notable changes to this project are documented here. The format follows
 - The trace viewer no longer sends permissive CORS headers.
 
 ### Fixed
+- Concurrent requests corrupted each other's traces (VizTracer: "Overwrite tracer!").
+  A request that arrives while another one is traced is now served untraced, and the
+  console says so.
+- Code run through `loop.run_in_executor` (Tornado, plain asyncio) was missing from
+  traces after the first request on Python < 3.12.
+- `profyle --help` crashed with recent Click versions (#8): the CLI no longer uses Typer.
+- `PermissionError` on Windows writing a temporary trace file (#4): traces are built in
+  memory, without temporary files.
+- Dependency ranges were too strict (#5): only minimum versions are declared now.
 - `PROFYLE_ENABLED=false` did not disable the FastAPI and Flask middlewares.
 - The disabled Django middleware returned no response, breaking every request.
 - The Django middleware read `MIN_DURATION` instead of `PROFYLE_MIN_DURATION` (the old

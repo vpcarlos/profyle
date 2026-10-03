@@ -35,11 +35,19 @@ CASES = {
     "django-runserver": ("django", "Django", ["python", "manage.py", "runserver"]),
     "django-asgi-uvicorn": ("django", "Django", ["uvicorn", "manage:application"]),
     "plain-asgi-uvicorn": ("asgi", "ASGI", ["uvicorn", "app:app"]),
+    "tornado-server": ("tornado", "Tornado", ["python", "app.py", "{port}"]),
+    "tornado-gunicorn": (
+        "tornado",
+        "Tornado",
+        ["gunicorn", "-k", "tornado", "-b", "127.0.0.1:{port}", "app:app"],
+    ),
 }
 
 
 def command_with_port(command: list[str], port: int) -> list[str]:
     command = [str(BIN / command[0]), *command[1:]]
+    if any("{port}" in part for part in command):
+        return [part.format(port=port) for part in command]
     if "runserver" in command:
         return [*command, str(port)]
     return [*command, "--port", str(port)]
@@ -95,5 +103,5 @@ def test_profyle_run_traces_without_code_changes(case, tmp_path):
     # comprehension frame, so it is reported as "list comprehension at <file>:<line>".
     assert any(
         f"repeated: {caller}" in console and "→ get_customer ×50" in console
-        for caller in ("list_orders →", "app →", "list comprehension at ")
+        for caller in ("list_orders →", "app →", "OrdersHandler.get →", "list comprehension at ")
     ), console

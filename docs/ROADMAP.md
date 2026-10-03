@@ -36,14 +36,16 @@ compare_traces  ←  replay the same request  ←  code change
   they were created. Frameworks run code in reused thread pools (FastAPI sync endpoints
   and dependencies, Django async views under ASGI, `sync_to_async`), so
   `profyle/infrastructure/middleware/threadpool.py` enables tracing in the thread that
-  runs the code for the duration of the call, using VizTracer's `pause()`/`resume()` in
+  runs the code for the duration of the call (anyio, asgiref and
+  `loop.run_in_executor`), using VizTracer's `pause()`/`resume()` in
   the same frame to keep its per-thread stack balanced. Python 3.12+ uses
   `sys.monitoring` and needs none of this.
 
 - **Zero-code integration.** `profyle run` puts `profyle/_run/sitecustomize.py` on
   `PYTHONPATH`; it installs import hooks that add the middleware when FastAPI/Starlette
-  (`Starlette.__call__`), Flask (`Flask.__init__`), Django (`load_middleware`) or uvicorn
-  (`Config.load`, for any other ASGI app) is imported. Explicit middlewares win, and a
+  (`Starlette.__call__`), Flask (`Flask.__init__`), Django (`load_middleware`), Tornado
+  (`RequestHandler._execute`) or uvicorn (`Config.load`, for any other ASGI app) is
+  imported. Explicit middlewares win, and a
   marker on the request keeps nested middlewares from tracing it twice.
 - **Feedback without overhead.** The one-line console summary is built by a separate
   process that reads the stored trace, so requests never wait for the digest.
@@ -79,6 +81,9 @@ compare_traces  ←  replay the same request  ←  code change
   digests without argument values.
 
 ### Known issues
+- One trace at a time per process: concurrent requests are not traced while another one
+  is, and work from overlapping requests on the same thread appears in the running
+  trace. Filtering events by asyncio task would isolate async requests.
 - During development the test suite crashed twice at interpreter shutdown (fatal error
   after all tests passed) in ~30 runs, and never again in ~355 later runs, including 100
   in parallel. The suspected cause is threads still hooked to a tracer during shutdown;

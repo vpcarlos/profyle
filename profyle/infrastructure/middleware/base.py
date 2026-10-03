@@ -56,7 +56,14 @@ class Integration:
             max_stack_depth=self.config.max_stack_depth,
             min_duration=self.config.min_duration,
             on_stored=self._console_callback(),
+            on_busy=lambda: self._say_busy(name),
         )
+
+    def _say_busy(self, name: str) -> None:
+        if self.config.console:
+            from profyle.infrastructure.console import say
+
+            say(f"{name} not traced: another request was being traced (one at a time)")
 
     def _console_callback(self):
         if not self.config.console:

@@ -61,6 +61,9 @@ django = [
 fastapi = [
     "fastapi>=0.115.0",
 ]
+tornado = [
+    "tornado>=6.1",
+]
 # MCP server so Claude Code / Claude Desktop can query traces (`profyle mcp`)
 mcp = [
     "mcp>=2.0.0",
@@ -72,6 +75,8 @@ dev = [
     "httpx>=0.23.3",
     "flask>=3.0.0",
     "django>=4.2.7",
+    "tornado>=6.1",
+    "gunicorn>=22.0; sys_platform != 'win32'",
     "mcp>=2.0.0",
     "pytest-asyncio>=0.21.1",
     "ruff>=0.1.5",

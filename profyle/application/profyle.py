@@ -32,23 +32,31 @@ class profyle:
     request: RecordedRequest | Callable[[], RecordedRequest] | None = None
     # Called with the id of the stored trace (e.g. to print a summary line).
     on_stored: Callable[[int], None] | None = None
+    # Called when the request is not traced because another one is being traced.
+    on_busy: Callable[[], None] | None = None
 
     def __enter__(self) -> "profyle":
-
-        if self.should_trace():
-            self.tracer = VizTracer(
-                log_func_args=True,
-                log_print=True,
-                log_func_retval=True,
-                log_async=True,
-                file_info=True,
-                min_duration=self.min_duration,
-                max_stack_depth=self.max_stack_depth,
-                verbose=0,
-            )
-            self.tracer.start()
-            global _active_tracer
-            _active_tracer = self.tracer
+        global _active_tracer
+        if not self.should_trace():
+            return self
+        if _active_tracer is not None:
+            # VizTracer can record one trace per process: starting a second one while a
+            # concurrent request is traced would corrupt both traces.
+            if self.on_busy:
+                self.on_busy()
+            return self
+        self.tracer = VizTracer(
+            log_func_args=True,
+            log_print=True,
+            log_func_retval=True,
+            log_async=True,
+            file_info=True,
+            min_duration=self.min_duration,
+            max_stack_depth=self.max_stack_depth,
+            verbose=0,
+        )
+        self.tracer.start()
+        _active_tracer = self.tracer
         return self
 
     def __exit__(

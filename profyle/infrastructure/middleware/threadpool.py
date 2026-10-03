@@ -9,6 +9,8 @@ therefore invisible:
 - Django under ASGI runs the (sync) Profyle middleware in a worker thread and async views
   back on the event loop thread through asgiref's `async_to_sync`; `sync_to_async` sends
   sync code to executor threads.
+- Tornado and plain asyncio code send blocking calls to a thread pool with
+  `loop.run_in_executor`.
 
 While a request is traced, these bridges enable tracing inside the thread that actually
 runs the code and unhook it afterwards, so the pool thread does not keep the request's
@@ -33,6 +35,7 @@ def trace_worker_threads() -> None:
         return
     _patch_anyio()
     _patch_asgiref()
+    _patch_asyncio()
 
 
 # VizTracer is attached to a thread with enable_thread_tracing() the first time and
@@ -117,6 +120,27 @@ def _patch_anyio() -> None:
 
     anyio.to_thread.run_sync = run_sync
     _patched.add("anyio")
+
+
+def _patch_asyncio() -> None:
+    """`loop.run_in_executor`: how Tornado (IOLoop.run_in_executor) and plain asyncio
+    code run blocking functions in a thread pool."""
+    if "asyncio" in _patched:
+        return
+    import asyncio.base_events
+
+    loop_class = asyncio.base_events.BaseEventLoop
+    original = loop_class.run_in_executor
+
+    @functools.wraps(original)
+    def run_in_executor(self, executor, func, *args):
+        tracer = active_tracer()
+        if tracer is None:
+            return original(self, executor, func, *args)
+        return original(self, executor, _traced_sync(func, tracer), *args)
+
+    loop_class.run_in_executor = run_in_executor
+    _patched.add("asyncio")
 
 
 def _patch_asgiref() -> None:
