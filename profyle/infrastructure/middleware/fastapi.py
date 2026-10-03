@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -12,7 +11,7 @@ class ProfyleMiddleware:
         self,
         app: ASGIApp,
         enabled: bool = True,
-        pattern: Optional[str] = None,
+        pattern: str|None = None,
         max_stack_depth: int = -1,
         min_duration: int = 0,
         trace_repo: SQLiteTraceRepository = SQLiteTraceRepository(),
@@ -34,6 +33,9 @@ class ProfyleMiddleware:
         if self.enabled and scope["type"] == "http":
             method = scope.get("method", "").upper()
             path = scope.get("raw_path", b"").decode("utf-8")
+            query_string = scope.get("query_string", b"").decode("utf-8")
+            if query_string:
+                path = f"{path}?{query_string}"
             with profyle(
                 name=f"{method} {path}",
                 pattern=self.pattern,

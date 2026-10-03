@@ -56,7 +56,7 @@ async def test_should_not_trace_a_process_if_min_duration_not_reached():
     with profyle(
         name="test",
         repo=trace_repo,
-        min_duration=3000
+        min_duration=3000000
     ):
         await asyncio.sleep(2)
 

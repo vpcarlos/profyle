@@ -151,6 +151,43 @@ INFO:     Application startup complete.
 
 
 
+## AI analysis with Claude
+A single traced request easily holds 100k+ VizTracer events (tens of MB), far more than a
+model can read. Profyle condenses each trace into a **digest** of a few KB: critical path
+per thread, top self time, your own code by inclusive time, I/O wait and repeated calls
+from the same caller (N+1 candidates), each with `file:line`.
+
+### Claude Code / Claude Desktop (MCP)
+```console
+$ pip install "profyle[mcp]"
+$ claude mcp add profyle -e PROFYLE_DB=$PWD/profile.db -- profyle mcp
+```
+Then ask Claude Code *"why is GET /users slow? fix it"*. It gets read-only tools
+(`slowest_endpoints`, `list_traces`, `analyze_trace`, `get_call_details`,
+`get_function_source`, `compare_traces`) and, since it already has your repository open,
+can go from trace to code change, and verify the fix by comparing a new trace.
+
+### In-app chat
+```console
+$ pip install "profyle[ai]"
+$ export ANTHROPIC_API_KEY=...   # or `ant auth login`
+$ profyle start
+```
+Open a trace and use the chat bubble. Model and effort can be changed with
+`PROFYLE_CLAUDE_MODEL` (default `claude-opus-5-5`) and `PROFYLE_CLAUDE_EFFORT`
+(default `medium`). Function arguments and return values recorded in the trace are sent
+to the Claude API when the model asks for them.
+
+### Any LLM / scripts
+```console
+$ profyle analyze 42 | claude -p "Find the bottleneck and propose a fix"
+```
+
+### Trace database
+Traces are stored in a SQLite file inside the installed package by default. Set
+`PROFYLE_DB=/path/to/profile.db` (in the app **and** for `profyle start` / `profyle mcp`)
+to keep one database per project.
+
 ## CLI Commands
 ### start
 * Start the web server and view profile traces
@@ -187,14 +224,34 @@ $ profyle clean
 
 </div>
 
-### check
-* Check traces DB size
+### info
+* Show the traces DB location and size
 <div class="termy">
 
 ```console
-$ profyle check
+$ profyle info
 
-DB size: 30MB
+DB size → 30.0 MB
+```
+
+</div>
+
+### analyze
+* Print the LLM-ready digest of a trace (defaults to the selected one)
+<div class="termy">
+
+```console
+$ profyle analyze 42
+```
+
+</div>
+
+### mcp
+* Run the MCP server over stdio (for Claude Code / Claude Desktop)
+<div class="termy">
+
+```console
+$ profyle mcp
 ```
 
 </div>

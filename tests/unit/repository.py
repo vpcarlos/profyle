@@ -1,6 +1,4 @@
-import json
 import time
-from typing import Optional
 from uuid import uuid4
 
 from profyle.domain.trace import Trace, TraceCreate
@@ -36,7 +34,7 @@ class InMemoryTraceRepository(TraceRepository):
         trace = Trace(
             id=uuid4().int,
             timestamp=str(time.time()),
-            data=json.dumps(new_trace.data),
+            data=new_trace.raw_trace,
             duration=new_trace.duration,
             name=new_trace.name,
         )
@@ -45,13 +43,13 @@ class InMemoryTraceRepository(TraceRepository):
     def get_all_traces(self) -> list[Trace]:
         return self.traces
 
-    def get_trace_by_id(self, id: int) -> Optional[Trace]:
+    def get_trace_by_id(self, id: int) -> Trace|None:
         for trace in self.traces:
             if trace.id == id:
                 return trace
         return
 
-    def get_trace_selected(self) -> Optional[int]:
+    def get_trace_selected(self) -> int|None:
         return self.selected_trace
 
     def delete_trace_by_id(self, trace_id: int):

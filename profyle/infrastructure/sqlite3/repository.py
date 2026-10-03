@@ -1,6 +1,5 @@
 import json
 from sqlite3 import Connection, Error, Row
-from typing import Optional
 
 from profyle.domain.trace import Trace, TraceCreate
 from profyle.domain.trace_repository import TraceRepository
@@ -8,7 +7,7 @@ from profyle.infrastructure.sqlite3.get_connection import get_connection
 
 
 class SQLiteTraceRepository(TraceRepository):
-    def __init__(self, db: Optional[Connection] = None):
+    def __init__(self, db: Connection | None = None):
         if not db:
             db = get_connection()
         self.db = db
@@ -78,10 +77,7 @@ class SQLiteTraceRepository(TraceRepository):
                     REPLACE INTO trace_selected
                     ( id, trace_id) VALUES (?, ?)
                 """
-            data_tuple = (
-                1,
-                trace_id
-            )
+            data_tuple = (1, trace_id)
             cursor.execute(replace_query, data_tuple)
             self.db.commit()
             cursor.close()
@@ -99,7 +95,7 @@ class SQLiteTraceRepository(TraceRepository):
             """
 
             data_tuple = (
-                json.dumps(trace.data),
+                json.dumps(trace.raw_trace),
                 trace.duration,
                 trace.name,
             )
@@ -122,24 +118,23 @@ class SQLiteTraceRepository(TraceRepository):
 
         traces = cursor.fetchall()
 
-        return [
-            Trace(**dict(trace))
-            for trace in traces
-        ]
+        return [Trace(**dict(trace)) for trace in traces]
 
-    def get_trace_by_id(self, id: int) -> Optional[Trace]:
+    def get_trace_by_id(self, id: int) -> Trace|None:
         self.db.row_factory = Row
         cursor = self.db.cursor()
         cursor.execute("SELECT * FROM traces where id = ?", (id,))
         trace = cursor.fetchone()
         if trace:
-            return Trace(**dict(trace))
+            trace_dict = dict(trace)
+            if isinstance(trace_dict.get("data"), str):
+                trace_dict["data"] = json.loads(trace_dict["data"])
+            return Trace(**trace_dict)
 
-    def get_trace_selected(self) -> Optional[int]:
+    def get_trace_selected(self) -> int|None:
         self.db.row_factory = Row
         cursor = self.db.cursor()
-        cursor.execute(
-            "SELECT trace_id FROM trace_selected where id = ?", (1,))
+        cursor.execute("SELECT trace_id FROM trace_selected where id = ?", (1,))
         trace = cursor.fetchone()
         return trace["trace_id"] if trace else None
 
@@ -149,7 +144,7 @@ class SQLiteTraceRepository(TraceRepository):
             """
             DELETE FROM traces WHERE id = ?
             """,
-            (trace_id,)
+            (trace_id,),
         )
         self.db.commit()
         cursor.close()

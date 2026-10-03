@@ -1,10 +1,9 @@
 import os
 
 import viztracer
-from pydantic_settings import BaseSettings
 
 
-class Settings(BaseSettings):
+class Settings:
     app_name: str = "Profyle"
     project_dir: str = os.path.normpath(
         os.path.join(
@@ -18,6 +17,10 @@ class Settings(BaseSettings):
             self.project_dir,
             *args
         )
+
+    def get_db_path(self) -> str:
+        # PROFYLE_DB lets each project (and its MCP server) keep its own traces.
+        return os.getenv("PROFYLE_DB") or self.get_path("profile.db")
 
     def get_viztracer_static_files(self):
         return os.path.normpath(os.path.join(

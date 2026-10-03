@@ -1,10 +1,12 @@
+import os
 from sqlite3 import Connection
+from typing import Literal
 
-import uvicorn
-from fastapi import Depends, FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from starlette.responses import RedirectResponse
 
 from profyle.application.trace.create import create_trace_selected_table, create_trace_table
@@ -14,17 +16,16 @@ from profyle.infrastructure.sqlite3.get_connection import get_connection
 from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 from profyle.settings import settings
 
-app = FastAPI(
-    title="Profyle",
-    version="1.0.0"
-)
+app = FastAPI(title="Profyle", version="1.0.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatTurn]
 
 
 @app.on_event("startup")
@@ -34,18 +35,41 @@ async def startup_event():
     create_trace_table(repo=sqlite_trace_repo)
     create_trace_selected_table(repo=sqlite_trace_repo)
 
+
 STATIC_PATH = ("infrastructure", "web", "static")
-app.mount(
-    "/static",
-    StaticFiles(directory=settings.get_path(*STATIC_PATH)),
-    name="static"
-)
+app.mount("/static", StaticFiles(directory=settings.get_path(*STATIC_PATH)), name="static")
 
 app.mount(
-    "/show",
-    StaticFiles(directory=settings.get_viztracer_static_files(), html=True),
-    name="perfetto"
+    "/perfetto_static",
+    StaticFiles(directory=settings.get_viztracer_static_files(), html=False),
+    name="perfetto_static",
 )
+
+
+@app.get("/show", response_class=HTMLResponse)
+async def show_perfetto_ui():
+    viztracer_path = settings.get_viztracer_static_files()
+    index_path = os.path.join(viztracer_path, "index.html")
+    with open(index_path, encoding="utf-8") as f:
+        content = f.read()
+
+    # Read injection content
+    injection_path = settings.get_path(
+        "infrastructure", "web", "templates", "perfetto_injection.html"
+    )
+    with open(injection_path, encoding="utf-8") as f:
+        injection_content = f.read()
+
+    modified_content = content.replace("</head>", f"{injection_content}</head>")
+
+    # Fix asset loading path to use the new static mount
+    modified_content = modified_content.replace(
+        "script.src = version + '/frontend_bundle.js';",
+        "script.src = '/perfetto_static/' + version + '/frontend_bundle.js';",
+    )
+
+    return modified_content
+
 
 TEMPLATES_PATH = ("infrastructure", "web", "templates")
 templates = Jinja2Templates(directory=settings.get_path(*TEMPLATES_PATH))
@@ -64,10 +88,7 @@ async def file_info(
     trace_id = get_trace_selected(repo=sqlite_trace_repo)
     if not trace_id:
         return {}
-    trace = get_trace_by_id(
-        trace_id=trace_id,
-        repo=sqlite_trace_repo
-    )
+    trace = get_trace_by_id(trace_id=trace_id, repo=sqlite_trace_repo)
     if not trace:
         return {}
     return trace.data.get("file_info")
@@ -81,10 +102,7 @@ async def localtrace(
     trace_id = get_trace_selected(repo=sqlite_trace_repo)
     if not trace_id:
         return {}
-    trace = get_trace_by_id(
-        trace_id=trace_id,
-        repo=sqlite_trace_repo
-    )
+    trace = get_trace_by_id(trace_id=trace_id, repo=sqlite_trace_repo)
     if not trace:
         return {}
     return trace.data
@@ -99,16 +117,13 @@ async def index():
 async def traces(
     request: Request,
     db: Connection = Depends(get_connection),
-
 ):
     sqlite_trace_repo = SQLiteTraceRepository(db)
     traces = get_all_traces(repo=sqlite_trace_repo)
     return templates.TemplateResponse(
-        name="traces.html",
-        context={
-            "request": request,
-            "traces": [trace.dict() for trace in traces]
-        }
+        request,
+        "traces.html",
+        context={"traces": [trace.model_dump(exclude={"data"}) for trace in traces]},
     )
 
 
@@ -118,10 +133,7 @@ async def get_trace(
     db: Connection = Depends(get_connection),
 ):
     sqlite_trace_repo = SQLiteTraceRepository(db)
-    store_trace_selected(
-        trace_id=id,
-        repo=sqlite_trace_repo
-    )
+    store_trace_selected(trace_id=id, repo=sqlite_trace_repo)
     return RedirectResponse(url="/show")
 
 
@@ -129,13 +141,25 @@ async def get_trace(
 async def delete_trace(
     id: int,
     db: Connection = Depends(get_connection),
-
 ) -> None:
     sqlite_trace_repo = SQLiteTraceRepository(db)
     sqlite_trace_repo.delete_trace_by_id(id)
 
 
-async def start_server(port: int = 0, host: str = "127.0.0.1"):
-    config = uvicorn.Config(app, port=port, log_level="info", host=host)
-    server = uvicorn.Server(config)
-    await server.serve()
+@app.post("/chat")
+async def chat_endpoint(
+    chat: ChatRequest,
+    db: Connection = Depends(get_connection),
+):
+    from profyle.application.ai.agent import ClaudeNotConfigured, get_agent_response
+
+    sqlite_trace_repo = SQLiteTraceRepository(db)
+    try:
+        response = await get_agent_response(
+            repo=sqlite_trace_repo,
+            history=[turn.model_dump() for turn in chat.messages],
+            trace_id=get_trace_selected(repo=sqlite_trace_repo),
+        )
+    except ClaudeNotConfigured as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    return {"response": response}
