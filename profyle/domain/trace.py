@@ -74,6 +74,18 @@ class TraceData(BaseModel):
     )
 
 
+class ResponseFingerprint(BaseModel):
+    """Enough about a response body to tell whether a change altered what it returns,
+    without storing the body itself."""
+
+    size: int
+    content_type: str | None = None
+    sha256: str = Field(..., description="Hash of the body (canonical form for JSON)")
+    shape: str | None = Field(
+        None, description="JSON only: hash of keys, types and list lengths, ignoring values"
+    )
+
+
 class RecordedRequest(BaseModel):
     """The HTTP request that produced a trace, kept so it can be replayed."""
 
@@ -85,6 +97,7 @@ class RecordedRequest(BaseModel):
     body_encoding: Literal["utf-8", "base64"] | None = None
     body_truncated: bool = False
     status_code: int | None = None
+    response: ResponseFingerprint | None = None
 
 
 class Trace(BaseModel):

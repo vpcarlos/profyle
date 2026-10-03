@@ -66,6 +66,8 @@ def test_should_record_the_request_for_replay(fastapi_client, fastapi_app):
     assert request.body == '{"a":1}'
     assert request.headers["authorization"] == "[redacted]"
     assert request.status_code == 200
+    assert request.response.content_type == "application/json"
+    assert request.response.shape is not None
 
 
 def test_should_trace_sync_endpoints_on_every_request(fastapi_app):

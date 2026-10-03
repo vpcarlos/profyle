@@ -1,5 +1,6 @@
 import fnmatch
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from viztracer import VizTracer
@@ -25,8 +26,10 @@ class profyle:
     min_duration: float = 0
     pattern: str|None = None
     tracer: VizTracer|None = None
-    # Set by the middleware once the response is known (see request_capture).
-    request: RecordedRequest | None = None
+    # Set by the middleware once the response is known (see request_capture). A callable
+    # is resolved after the tracer stops, so recording the exchange (copying headers,
+    # fingerprinting the response) does not show up in the trace it describes.
+    request: RecordedRequest | Callable[[], RecordedRequest] | None = None
 
     def __enter__(self) -> "profyle":
 
@@ -55,6 +58,7 @@ class profyle:
             _active_tracer = None
         if self.tracer and self.tracer.enable:
             self.tracer.stop()
+            request = self.request() if callable(self.request) else self.request
             self.tracer.parse()
             report_builder = ReportBuilder(self.tracer.data, verbose=0)
             report_builder.prepare_json(file_info=True)
@@ -62,7 +66,7 @@ class profyle:
                 raw_trace=report_builder.combined_json,
                 name=self.name,
                 repo=self.repo,
-                request=self.request,
+                request=request,
             )
 
     def should_trace(self) -> bool:

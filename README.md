@@ -159,11 +159,13 @@ fixes your code, replays the same request and shows you the before/after.
 ```console
 $ pip install "profyle[mcp]"
 ```
-Add `ProfyleMiddleware` to your app (see [Example](#example)) and run it with the
-database in your project root, so Claude Code reads the same traces:
+Add `ProfyleMiddleware` to your app (see [Example](#example)) and run it from your
+project, ideally with auto-reload:
 ```console
-$ PROFYLE_DB=$PWD/profile.db uvicorn main:app --reload
+$ uvicorn main:app --reload
 ```
+Traces go to `<project>/.profyle/profile.db`, a folder git ignores automatically.
+`profyle doctor` checks that everything is wired up.
 
 ### 2. Add the Claude Code plugin
 ```console
@@ -175,29 +177,39 @@ Claude uses automatically when you mention a slow endpoint (or run
 `/profyle:fix-slow-endpoint`). It starts `profyle` from your `PATH`; if that is not your
 project's environment, set `PROFYLE_COMMAND=/path/to/.venv/bin/profyle`.
 
-Without the plugin, register just the MCP server:
-`claude mcp add profyle -e PROFYLE_DB=$PWD/profile.db -- profyle mcp`
+Without the plugin, register just the MCP server from your project directory:
+`claude mcp add profyle -- profyle mcp`
 
 ### 3. Ask
 Hit the slow endpoint once, then ask Claude Code about it. The skill makes it:
-1. take a warm baseline by replaying the request (`replay_request`);
-2. read the trace **digest**: critical path per thread, top self time, your own code, I/O
+1. run `doctor` and tell you exactly what to fix if the setup is incomplete;
+2. take a warm baseline by replaying the request (`replay_request`);
+3. read the trace **digest**: critical path per thread, top self time, your own code, I/O
    wait and repeated calls from the same caller (N+1 candidates), each with `file:line`.
    A traced request easily holds 100k+ VizTracer events; the digest is a few KB;
-3. drill into the suspicious functions and read your code;
-4. fix it, replay the request and `compare_traces` before/after, checking the status
-   code did not change;
-5. report root cause, change and measured improvement.
+4. drill into the suspicious functions and read your code;
+5. fix it, replay the request and `compare_traces` before/after, checking that the
+   status code and the **response body** did not change;
+6. report root cause, change and measured improvement.
 
 | MCP tool | |
 |---|---|
+| `doctor` | Checks the trace database, recorded requests and that the app is running |
 | `slowest_endpoints` | Endpoints ranked by p95 |
 | `list_traces` | Recorded traces, filterable by name and duration |
 | `analyze_trace` | Bottleneck digest of a trace |
 | `get_call_details` | Callers, callees, slowest calls with args and return values |
 | `get_function_source` | Source of a function as it was when traced |
 | `replay_request` | Send the traced request again, return the new traces |
-| `compare_traces` | Before/after deltas |
+| `compare_traces` | Before/after deltas, plus status and response body verdict |
+
+### Same speed-up, same data
+Each trace keeps a fingerprint of the response body, never the body itself: a hash of the
+canonical body and, for JSON, a hash of its structure (keys, value types, list lengths).
+Replays and `compare_traces` report the body as **identical**, **same structure, values
+differ** (e.g. timestamps) or **DIFFERENT**, so a "fix" that returns less data is caught.
+FastAPI/Starlette and Django record it on every request; with Flask the first replay
+records it.
 
 ### Replay safety
 - Profyle stores the request behind each trace (method, path, headers, body up to 64 KB,
@@ -212,13 +224,16 @@ Hit the slow endpoint once, then ask Claude Code about it. The skill makes it:
 ```console
 $ profyle analyze 42 | claude -p "Find the bottleneck and propose a fix"
 $ profyle replay 42 --times 3
+$ profyle doctor
 ```
 
 ### Trace database
-Traces are stored in a SQLite file inside the installed package by default. Set
-`PROFYLE_DB=/path/to/profile.db` in the app **and** for `profyle start` / `profyle mcp`
-to keep one database per project. The plugin also finds `<project>/profile.db`
-automatically.
+Traces are stored in `<project>/.profyle/profile.db`, where `<project>` is the closest
+parent of the working directory with a `pyproject.toml`, `setup.py`, `manage.py`,
+`requirements.txt` or `.git`. The app, `profyle start`, `profyle mcp` and the plugin all
+find the same file. Set `PROFYLE_DB=/path/to/profile.db` to use another location.
+Versions before 0.4 stored traces inside the installed package; `profyle doctor` warns if
+it still finds traces there.
 
 ## CLI Commands
 ### start
@@ -278,6 +293,20 @@ $ profyle analyze 42
 
 </div>
 
+### doctor
+* Check that traces are recorded, can be replayed and the app is running
+<div class="termy">
+
+```console
+$ profyle doctor
+
+✓ Database /my/project/.profyle/profile.db: 12 traces, newest #12 GET /orders
+✓ Requests are recorded, so they can be replayed.
+✓ The app is running at http://localhost:8000.
+```
+
+</div>
+
 ### replay
 * Send the request of a trace again (local app) and record a new trace
 
@@ -292,6 +321,7 @@ $ profyle analyze 42
 
 ```console
 $ profyle replay 42 --times 3
+$ profyle doctor
 ```
 
 </div>

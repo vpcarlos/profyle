@@ -8,22 +8,25 @@ description: Diagnose and fix a slow endpoint or request in a Python web app (Fa
 Work from measurements, not intuition: every claim you make about where time goes must
 come from a trace, and every fix must be verified with a new trace of the same request.
 
-The `profyle` MCP server provides: `slowest_endpoints`, `list_traces`, `analyze_trace`,
-`get_call_details`, `get_function_source`, `replay_request`, `compare_traces`.
-All durations are in milliseconds.
+The `profyle` MCP server provides: `doctor`, `slowest_endpoints`, `list_traces`,
+`analyze_trace`, `get_call_details`, `get_function_source`, `replay_request`,
+`compare_traces`. All durations are in milliseconds.
+
+## 0. Check the setup
+
+Call `doctor` first. It reports which trace database is read, whether traces and their
+requests are recorded, and whether the app is running. If it lists ✗ items, relay the
+fixes to the user in plain words and wait for them before going on. Typical fixes:
+- `pip install "profyle[mcp]"` and add `ProfyleMiddleware` (`profyle.fastapi`,
+  `profyle.flask`, or `"profyle.django.ProfyleMiddleware"` in `MIDDLEWARE`).
+- Start the app from inside the project, preferably with auto-reload. Traces are stored
+  in `<project>/.profyle/profile.db` automatically, and git ignores that folder.
+- Make the slow request once (browser, curl or the frontend).
 
 ## 1. Find the endpoint and its traces
 
 - If the user named the endpoint, call `list_traces(name_contains=...)`. Otherwise call
   `slowest_endpoints` and confirm with the user which one to work on.
-- If there are no traces, the app is not being traced yet. Explain the setup and stop
-  until it is done:
-  - Install with `pip install "profyle[mcp]"` and add `ProfyleMiddleware`
-    (`profyle.fastapi`, `profyle.flask`, or `"profyle.django.ProfyleMiddleware"` in
-    `MIDDLEWARE`).
-  - Run the app with `PROFYLE_DB=<project root>/profile.db` so this server reads the same
-    database. The `list_traces` message shows which file is being read.
-  - Trigger the slow request once (browser, curl or the frontend).
 
 ## 2. Get a trustworthy baseline
 
@@ -87,11 +90,16 @@ the evidence: ms, % of the request, call counts and `file:line`.
 
 - Make sure the app is running the new code. With auto-reload, wait a moment; otherwise
   ask the user to restart it.
-- Call `replay_request(baseline_trace_id, times=3)`. If it reports a **status change**,
-  the fix broke something: investigate before comparing timings.
-- Call `compare_traces(baseline_id, new_id)` to confirm that the bottleneck went away (for
-  example, the N+1 callee drops from ×100 calls to ×1). Use `analyze_trace` on the new trace
-  to see what dominates now.
+- Call `replay_request(baseline_trace_id, times=3)`. Read two columns before the timings:
+  - **status:** a status change means the fix broke something.
+  - **body:** `identical` is the goal. `same structure, values differ` is fine when the
+    replay notes that values already vary between runs (timestamps, ids). `DIFFERENT`
+    means the endpoint now returns other data: fix that before claiming any speed-up.
+  If the baseline trace has no recorded body (Flask), compare against the first
+  baseline replay instead.
+- Call `compare_traces(baseline_id, new_id)`. Its `response_body` and `status` fields
+  must hold. Then confirm that the bottleneck went away (for example, the N+1 callee drops
+  from ×100 calls to ×1). Use `analyze_trace` on the new trace to see what dominates now.
 - If the improvement is small or the time moved somewhere else, go back to step 3.
 
 ## 6. Report
@@ -100,4 +108,5 @@ Finish with a short summary:
 - **Root cause**, with `file:line`.
 - **The change.**
 - **Before → after**, using median ms and the call counts that changed.
+- **Behavior check:** status and response body (identical, or same structure).
 - **What dominates the request now**, if more can be gained.

@@ -4,6 +4,8 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from profyle.application.profyle import profyle
 from profyle.application.request_capture import MAX_BODY_BYTES, build_recorded_request
+from profyle.application.response_fingerprint import MAX_FINGERPRINT_BYTES, fingerprint
+from profyle.domain.trace import RecordedRequest
 from profyle.infrastructure.middleware.threadpool import trace_worker_threads
 from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 
@@ -41,28 +43,7 @@ class ProfyleMiddleware:
             if query_string:
                 path = f"{path}?{query_string}"
 
-            body = bytearray()
-            body_truncated = False
-            status_code: int | None = None
-
-            # Only the body the app actually reads is captured; a body the app ignores
-            # cannot influence the response, so replaying without it is equivalent.
-            async def receive_and_capture() -> Message:
-                nonlocal body_truncated
-                message = await receive()
-                if message["type"] == "http.request" and not body_truncated:
-                    body.extend(message.get("body", b""))
-                    if len(body) > MAX_BODY_BYTES:
-                        body_truncated = True
-                        body.clear()
-                return message
-
-            async def send_and_capture(message: Message) -> None:
-                nonlocal status_code
-                if message["type"] == "http.response.start":
-                    status_code = message["status"]
-                await send(message)
-
+            exchange = _ExchangeRecorder(scope, receive, send)
             with profyle(
                 name=f"{method} {path}",
                 pattern=self.pattern,
@@ -71,25 +52,69 @@ class ProfyleMiddleware:
                 min_duration=self.min_duration,
             ) as trace:
                 try:
-                    await self.app(scope, receive_and_capture, send_and_capture)
+                    await self.app(scope, exchange.receive, exchange.send)
                 finally:
-                    headers = [
-                        (k.decode("latin-1"), v.decode("latin-1"))
-                        for k, v in scope.get("headers", [])
-                    ]
-                    host = dict(headers).get("host") or _server_host(scope)
-                    trace.request = build_recorded_request(
-                        method=method,
-                        path=path,
-                        scheme=scope.get("scheme", "http"),
-                        host=host,
-                        headers=headers,
-                        body=bytes(body),
-                        body_truncated=body_truncated,
-                        status_code=status_code,
-                    )
+                    trace.request = lambda: exchange.recorded_request(method, path)
             return
         await self.app(scope, receive, send)
+
+
+class _ExchangeRecorder:
+    """Wraps receive/send to keep what is needed to replay the request and to check
+    later that a change did not alter the response."""
+
+    def __init__(self, scope: Scope, receive: Receive, send: Send):
+        self.scope = scope
+        self._receive = receive
+        self._send = send
+        self.body = bytearray()
+        self.body_truncated = False
+        self.status_code: int | None = None
+        self.content_type: str | None = None
+        self.response_body = bytearray()
+        self.response_too_large = False
+
+    # Only the body the app actually reads is captured; a body the app ignores cannot
+    # influence the response, so replaying without it is equivalent.
+    async def receive(self) -> Message:
+        message = await self._receive()
+        if message["type"] == "http.request" and not self.body_truncated:
+            self.body.extend(message.get("body", b""))
+            if len(self.body) > MAX_BODY_BYTES:
+                self.body_truncated = True
+                self.body.clear()
+        return message
+
+    async def send(self, message: Message) -> None:
+        if message["type"] == "http.response.start":
+            self.status_code = message["status"]
+            for name, value in message.get("headers", []):
+                if name.lower() == b"content-type":
+                    self.content_type = value.decode("latin-1")
+        elif message["type"] == "http.response.body" and not self.response_too_large:
+            self.response_body.extend(message.get("body", b""))
+            if len(self.response_body) > MAX_FINGERPRINT_BYTES:
+                self.response_too_large = True
+                self.response_body.clear()
+        await self._send(message)
+
+    def recorded_request(self, method: str, path: str) -> RecordedRequest:
+        headers = [
+            (k.decode("latin-1"), v.decode("latin-1")) for k, v in self.scope.get("headers", [])
+        ]
+        request = build_recorded_request(
+            method=method,
+            path=path,
+            scheme=self.scope.get("scheme", "http"),
+            host=dict(headers).get("host") or _server_host(self.scope),
+            headers=headers,
+            body=bytes(self.body),
+            body_truncated=self.body_truncated,
+            status_code=self.status_code,
+        )
+        if self.status_code is not None and not self.response_too_large:
+            request.response = fingerprint(bytes(self.response_body), self.content_type)
+        return request
 
 
 def _server_host(scope: Scope) -> str:

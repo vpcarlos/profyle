@@ -5,10 +5,14 @@ a tool result as is.
 """
 
 import json
+import os
+import socket
+import sqlite3
 import statistics
 import time
 from collections import OrderedDict, defaultdict
 from typing import Any
+from urllib.parse import urlsplit
 
 from profyle.application import replay
 from profyle.application.analysis.digest import (
@@ -18,6 +22,8 @@ from profyle.application.analysis.digest import (
     get_function_source,
     render_digest,
 )
+from profyle.application.response_fingerprint import VERDICT_TEXT
+from profyle.application.response_fingerprint import compare as compare_responses
 from profyle.domain.trace import Trace
 from profyle.domain.trace_repository import TraceRepository
 from profyle.settings import settings
@@ -113,6 +119,17 @@ def call_details(repo: TraceRepository, trace_id: int, function: str) -> str:
 def compare_traces(repo: TraceRepository, before_id: int, after_id: int) -> str:
     before, after = _load(repo, before_id), _load(repo, after_id)
     diff = compare_digests(_digest(before), _digest(after))
+    verdict = compare_responses(_fingerprint_of(before), _fingerprint_of(after))
+    diff = {
+        "response_body": VERDICT_TEXT[verdict],
+        "status": [_status_of(before), _status_of(after)],
+        **diff,
+    }
+    if verdict == "different":
+        diff["warning"] = (
+            "The response body changed structure (keys, types or list lengths): the change "
+            "altered what the endpoint returns, not only how fast."
+        )
     return json.dumps(diff, indent=1)
 
 
@@ -146,7 +163,12 @@ def replay_trace(
         if response.error:
             runs.append((response, None))
             break
-        runs.append((response, _wait_for_trace(repo, original.name, last_id, wait_seconds)))
+        trace = _wait_for_trace(repo, original.name, last_id, wait_seconds)
+        if trace and trace.request and not trace.request.response and response.fingerprint:
+            # Frameworks whose middleware cannot see the body (Flask) get it from here.
+            trace.request.response = response.fingerprint
+            repo.update_trace_request(int(trace.id), trace.request)
+        runs.append((response, trace))
 
     return _render_replay(original, runs, missing_auth=replay.redacted_headers(request),
                           headers=headers)
@@ -158,13 +180,13 @@ def _render_replay(original: Trace, runs, missing_auth: list[str], headers) -> s
         f"Replayed {request.method} {request.path} (original trace #{original.id}: "
         f"{round(original.duration / 1000, 2)} ms, status {request.status_code}).",
         "",
-        "| run | status | response ms | new trace | trace ms |",
-        "|---|---|---|---|---|",
+        f"| run | status | response ms | new trace | trace ms | body vs #{original.id} |",
+        "|---|---|---|---|---|---|",
     ]
     new_ids, durations = [], []
     for number, (response, trace) in enumerate(runs, start=1):
         if response.error:
-            lines.append(f"| {number} | error | {response.elapsed_ms} | – | – |")
+            lines.append(f"| {number} | error | {response.elapsed_ms} | – | – | – |")
             lines.append(
                 f"\nCould not reach the app ({response.error}). Is it running? "
                 "Pass base_url if it listens on a different host or port."
@@ -175,24 +197,15 @@ def _render_replay(original: Trace, runs, missing_auth: list[str], headers) -> s
             new_ids.append(trace.id)
             durations.append(trace.duration / 1000)
             trace_cell, ms_cell = f"#{trace.id}", str(round(trace.duration / 1000, 2))
+        body = VERDICT_TEXT[compare_responses(request.response, response.fingerprint)]
         lines.append(
             f"| {number} | {response.status_code} | {response.elapsed_ms} | {trace_cell} "
-            f"| {ms_cell} |"
+            f"| {ms_cell} | {body} |"
         )
 
-    statuses = {response.status_code for response, _ in runs if not response.error}
-    status_changed = bool(request.status_code and statuses and statuses != {request.status_code})
-    if status_changed:
-        lines.append(
-            f"\n⚠ Status changed: original {request.status_code}, now "
-            f"{', '.join(str(s) for s in sorted(statuses))}. The endpoint behaves "
-            "differently; check this before comparing timings."
-        )
-    if missing_auth and not headers:
-        lines.append(
-            f"\nNote: these headers were redacted when recording: {', '.join(missing_auth)}. "
-            "If the endpoint needs them, ask the user for credentials and pass them as headers."
-        )
+    answered = [response for response, _ in runs if not response.error]
+    status_changed = _status_changed(request.status_code, answered)
+    lines += _replay_notes(original, answered, status_changed, missing_auth, headers)
     if durations:
         next_step = (
             "" if status_changed else f" Next: compare_traces({original.id}, {new_ids[-1]})."
@@ -200,13 +213,61 @@ def _render_replay(original: Trace, runs, missing_auth: list[str], headers) -> s
         lines.append(
             f"\nMedian trace duration: {round(statistics.median(durations), 2)} ms.{next_step}"
         )
-    elif runs and not runs[-1][0].error:
+    elif answered:
         lines.append(
             "\nThe app answered but no new trace was stored. Make sure it runs with "
             f"ProfyleMiddleware and the same database ({settings.get_db_path()}), and that "
-            "PROFYLE_PATTERN matches this path."
+            "PROFYLE_PATTERN matches this path. Run doctor to check the setup."
         )
     return "\n".join(lines)
+
+
+def _status_changed(original_status: int | None, answered) -> bool:
+    statuses = {response.status_code for response in answered}
+    return bool(original_status and statuses and statuses != {original_status})
+
+
+def _replay_notes(original: Trace, answered, status_changed, missing_auth, headers) -> list:
+    request = original.request
+    notes = []
+    if status_changed:
+        statuses = sorted({response.status_code for response in answered})
+        notes.append(
+            f"\n⚠ Status changed: original {request.status_code}, now "
+            f"{', '.join(str(s) for s in statuses)}. The endpoint behaves "
+            "differently; check this before comparing timings."
+        )
+    verdicts = {compare_responses(request.response, r.fingerprint) for r in answered}
+    if "different" in verdicts and not status_changed:
+        notes.append(
+            "\n⚠ The response body changed structure (keys, types or list lengths) "
+            f"compared with #{original.id}. A performance fix must return the same data."
+        )
+    hashes = {r.fingerprint.sha256 for r in answered if r.fingerprint}
+    if len(hashes) > 1:
+        notes.append(
+            "\nNote: the body differs between runs of the same code (timestamps, random "
+            "ids...), so exact comparison is not meaningful; rely on the structure check."
+        )
+    if request.response is None and answered:
+        notes.append(
+            f"\nNote: #{original.id} has no recorded response body to compare with. Use "
+            "the first replayed trace as the baseline and compare_traces against it."
+        )
+    if missing_auth and not headers:
+        notes.append(
+            f"\nNote: these headers were redacted when recording: {', '.join(missing_auth)}. "
+            "If the endpoint needs them, ask the user for credentials and pass them as headers."
+        )
+    return notes
+
+
+def _fingerprint_of(trace: Trace):
+    return trace.request.response if trace.request else None
+
+
+def _status_of(trace: Trace) -> int | None:
+    return trace.request.status_code if trace.request else None
 
 
 def _request_summary(trace: Trace) -> str:
@@ -247,3 +308,72 @@ def _empty_db_hint() -> str:
         f"Reading traces from {settings.get_db_path()}. If the app records traces "
         "elsewhere, run it and this server with the same PROFYLE_DB."
     )
+
+
+def doctor(repo: TraceRepository) -> str:
+    """Check that traces flow from the app to this tool, and say how to fix what doesn't."""
+    checks: list[tuple[bool | None, str]] = []
+    db_path = settings.get_db_path()
+    source = (
+        "PROFYLE_DB" if os.getenv("PROFYLE_DB")
+        else "plugin project dir" if os.getenv("PROFYLE_PROJECT_DIR")
+        else "project root found from the working directory"
+    )
+    traces = sorted(repo.get_all_traces(), key=lambda t: int(t.id))
+    if traces:
+        newest = traces[-1]
+        checks.append((True, f"Database {db_path} ({source}): {len(traces)} traces, newest "
+                             f"#{newest.id} {newest.name} at {newest.timestamp} UTC."))
+    else:
+        checks.append((False, f"Database {db_path} ({source}) has no traces. Add "
+                              "ProfyleMiddleware to the app, start it from inside this "
+                              "project (or with the same PROFYLE_DB), then make one request."))
+
+    legacy = _count_traces(settings.get_legacy_db_path())
+    if legacy and settings.get_legacy_db_path() != db_path:
+        checks.append((False, f"Found {legacy} traces in the old location "
+                              f"{settings.get_legacy_db_path()}: the app is probably running an "
+                              "older Profyle. Upgrade it in the app's environment and restart."))
+
+    newest_request = next((t for t in reversed(traces) if t.request), None) if traces else None
+    if traces and newest_request is None:
+        checks.append((False, "Traces have no recorded request, so they cannot be replayed. "
+                              "The app runs an older Profyle: upgrade and restart it."))
+    elif newest_request:
+        checks.append((True, "Requests are recorded, so they can be replayed."))
+        checks.append(_app_reachable(newest_request.request.base_url))
+
+    lines = [f"{'✓' if ok else '✗' if ok is False else '•'} {text}" for ok, text in checks]
+    lines.append(
+        "• Make sure the app auto-reloads code changes (uvicorn --reload, flask --debug, "
+        "manage.py runserver); otherwise it must be restarted before verifying a fix."
+    )
+    ready = all(ok is not False for ok, _ in checks)
+    lines.append("\nReady." if ready else "\nFix the ✗ items above, then run doctor again.")
+    return "\n".join(lines)
+
+
+def _count_traces(path: str) -> int:
+    if not os.path.exists(path):
+        return 0
+    try:
+        with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as db:
+            return db.execute("SELECT COUNT(*) FROM traces").fetchone()[0]
+    except sqlite3.Error:
+        return 0
+
+
+def _app_reachable(base_url: str | None) -> tuple[bool | None, str]:
+    if not base_url:
+        return None, "Could not tell where the app listens."
+    parts = urlsplit(base_url)
+    host = parts.hostname or "localhost"
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    if not replay.is_local(base_url):
+        return None, f"The app was reached at {base_url}, which is not local; replay is disabled."
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            return True, f"The app is running at {base_url}."
+    except OSError:
+        return False, (f"Nothing is listening at {base_url}. Start the app (with auto-reload) "
+                       "so requests can be replayed.")

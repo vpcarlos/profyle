@@ -45,7 +45,7 @@ def test_should_record_the_request_for_replay():
     )
 
     def get_response(request):
-        return HttpResponse(status=201)
+        return HttpResponse(b'{"ok": true}', status=201, content_type="application/json")
 
     profyle = ProfyleMiddleware(get_response)
     repo = InMemoryTraceRepository()
@@ -58,3 +58,4 @@ def test_should_record_the_request_for_replay():
     assert request.body == '{"a": 1}'
     assert request.headers["authorization"] == "[redacted]"
     assert request.status_code == 201
+    assert request.response.size == len(b'{"ok": true}')

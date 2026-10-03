@@ -57,7 +57,7 @@ produce, en ~4 KB (frente a 66 MB de JSON en la traza de prueba):
 Determinista, sin LLM, testeado (`tests/unit/application/analysis`).
 
 ### 3.2 Servidor MCP (`profyle mcp`)
-`claude mcp add profyle -e PROFYLE_DB=$PWD/profile.db -- profyle mcp`
+`claude mcp add profyle -- profyle mcp`
 
 Seis herramientas de solo lectura (`read_only_hint`) más `replay_request`. Es la pieza
 de mayor valor: Claude Code combina las trazas con el repositorio, edita el código y
@@ -96,9 +96,32 @@ skill → `list_traces` → `replay_request` ×3 (línea base) → `analyze_trac
 del código → batch query → `replay_request` ×3 → `compare_traces`.
 **240 ms → 22–38 ms**, status 200 sin cambios, 12 turnos y unos 0,19 USD.
 
+### 3.6 Mejoras de experiencia tras la primera prueba real
+- **Base de datos sin configurar**: `<proyecto>/.profyle/profile.db`. La app, la CLI, el
+  MCP y el plugin la encuentran solos (raíz del proyecto por `pyproject.toml`, `.git`,
+  etc.). La carpeta se ignora en git por sí misma (`.profyle/.gitignore` con `*`).
+  `PROFYLE_DB` sigue funcionando para elegir otra ruta.
+- **Verificación del cuerpo de la respuesta**: se guarda una huella, no el cuerpo, con
+  dos niveles: hash del cuerpo canónico y, para JSON, hash de la estructura (claves,
+  tipos, longitudes de listas). Replay y `compare_traces` dicen *identical*, *same
+  structure, values differ* o *DIFFERENT*, y detectan valores que varían entre
+  ejecuciones (timestamps, ids).
+- **`doctor`** (CLI y herramienta MCP, primer paso de la skill): qué base de datos se lee,
+  si hay trazas y peticiones grabadas, si la app responde, y trazas en la ubicación
+  antigua.
+- El trabajo de grabar la petición y la respuesta se hace **después** de parar el tracer,
+  para que Profyle no aparezca en la traza que mide (Claude lo detectó en la segunda
+  prueba).
+
+**Segunda prueba real**, sin ninguna variable de entorno y con una sola traza (en frío):
+skill → `doctor` (Ready) → `list_traces` → `replay_request` ×3 (560 ms en frío → 245 ms en
+caliente) → `analyze_trace` → edición → `replay_request` ×3 → `compare_traces`.
+**245 ms → 33 ms, status 200 y cuerpo idéntico**, verificado y reportado por Claude.
+12 turnos y unos 0,20 USD.
+
 ### 3.5 Otros
 - `profyle analyze <id>`: digest por stdout, para usar con `| claude -p "..."` o en CI.
-- `PROFYLE_DB`: una base de datos por proyecto (antes vivía dentro de `site-packages`).
+- Base de datos por proyecto: ver 3.6.
 - El SDK de MCP es un extra opcional (`profyle[mcp]`): el middleware sigue siendo
   ligero.
 - Arreglado el guardado de trazas, el `TemplateResponse` con Starlette reciente, y
@@ -108,13 +131,10 @@ del código → batch query → `replay_request` ×3 → `compare_traces`.
 
 ## 4. Hoja de ruta propuesta (por impacto/esfuerzo)
 
-### Fase 1: verificación más fiable
-1. **Comparar también la respuesta**: guardar un hash del cuerpo de la respuesta y
-   comprobarlo al repetir la petición, para garantizar que el arreglo no cambió los
-   datos devueltos. Es lo único que el agente no pudo verificar en la prueba real.
-2. **Precalcular el digest al guardar** (columna `digest` en SQLite): listados y MCP
+### Fase 1: siguientes pasos
+1. **Precalcular el digest al guardar** (columna `digest` en SQLite): listados y MCP
    instantáneos, y permite filtrar por "trazas con N+1" sin abrir los blobs.
-3. **Hilos de Django ASGI** (`sync_to_async` de asgiref): el mismo problema de pool de
+2. **Hilos de Django ASGI** (`sync_to_async` de asgiref): el mismo problema de pool de
    hilos que se arregló para FastAPI/Starlette.
 
 ### Fase 2: detectores deterministas (sin LLM, baratos y fiables)

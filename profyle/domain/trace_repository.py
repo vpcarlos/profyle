@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from profyle.domain.trace import Trace, TraceCreate
+from profyle.domain.trace import RecordedRequest, Trace, TraceCreate
 
 
 class TraceRepository(ABC):
@@ -24,6 +24,9 @@ class TraceRepository(ABC):
 
     @abstractmethod
     def store_trace(self, new_trace: TraceCreate) -> None: ...
+
+    @abstractmethod
+    def update_trace_request(self, trace_id: int, request: RecordedRequest) -> None: ...
 
     @abstractmethod
     def get_all_traces(self) -> list[Trace]: ...

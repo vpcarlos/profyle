@@ -1,7 +1,7 @@
 import json
 from sqlite3 import Connection, Error, Row
 
-from profyle.domain.trace import Trace, TraceCreate
+from profyle.domain.trace import RecordedRequest, Trace, TraceCreate
 from profyle.domain.trace_repository import TraceRepository
 from profyle.infrastructure.sqlite3.get_connection import get_connection
 
@@ -11,6 +11,9 @@ class SQLiteTraceRepository(TraceRepository):
         if not db:
             db = get_connection()
         self.db = db
+        # Readers (CLI, MCP server) may open the database before the app wrote anything.
+        self.create_trace_table()
+        self.create_trace_selected_table()
 
     def create_trace_selected_table(self) -> None:
         cursor = self.db.cursor()
@@ -113,19 +116,32 @@ class SQLiteTraceRepository(TraceRepository):
         except Error as error:
             print("Failed to insert data into trace table", error)
 
+    def update_trace_request(self, trace_id: int, request: RecordedRequest) -> None:
+        cursor = self.db.cursor()
+        cursor.execute(
+            "UPDATE traces SET request = ? WHERE id = ?",
+            (request.model_dump_json(), trace_id),
+        )
+        self.db.commit()
+        cursor.close()
+
     def get_all_traces(self) -> list[Trace]:
         self.db.row_factory = Row
         cursor = self.db.cursor()
         cursor.execute("""
             SELECT
-            id, timestamp, duration, name
+            id, timestamp, duration, name, request
             FROM traces
-            ORDER BY timestamp DESC
+            ORDER BY timestamp DESC, id DESC
         """)
 
-        traces = cursor.fetchall()
-
-        return [Trace(**dict(trace)) for trace in traces]
+        traces = []
+        for row in cursor.fetchall():
+            trace = dict(row)
+            if isinstance(trace.get("request"), str):
+                trace["request"] = json.loads(trace["request"])
+            traces.append(Trace(**trace))
+        return traces
 
     def get_trace_by_id(self, id: int) -> Trace|None:
         self.db.row_factory = Row

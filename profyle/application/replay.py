@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 from profyle.application.request_capture import REDACTED, decode_body
-from profyle.domain.trace import RecordedRequest
+from profyle.application.response_fingerprint import fingerprint
+from profyle.domain.trace import RecordedRequest, ResponseFingerprint
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "testserver"}
@@ -23,6 +24,7 @@ class ReplayResponse:
     status_code: int | None
     elapsed_ms: float
     error: str | None = None
+    fingerprint: ResponseFingerprint | None = None
 
 
 def is_local(url: str) -> bool:
@@ -70,14 +72,15 @@ def send(
     start = time.perf_counter()
     try:
         with urllib.request.urlopen(http_request, timeout=timeout) as response:
-            response.read()
-            status = response.status
+            body = response.read()
+            status, content_type = response.status, response.headers.get("Content-Type")
     except urllib.error.HTTPError as error:
-        status = error.code
+        body = error.read()
+        status, content_type = error.code, error.headers.get("Content-Type")
     except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
         reason = getattr(error, "reason", error)
         return ReplayResponse(None, _elapsed(start), f"{url}: {reason}")
-    return ReplayResponse(status, _elapsed(start))
+    return ReplayResponse(status, _elapsed(start), fingerprint=fingerprint(body, content_type))
 
 
 def redacted_headers(request: RecordedRequest) -> list[str]:

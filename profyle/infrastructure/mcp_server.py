@@ -19,6 +19,7 @@ server = MCPServer(
     name="profyle",
     instructions=(
         "Profyle records VizTracer traces of HTTP requests (FastAPI, Flask, Django). "
+        "If anything looks off (no traces, replay fails), call doctor. "
         "Start with slowest_endpoints or list_traces, then analyze_trace on one trace id. "
         "Drill down with get_call_details and get_function_source, then read and change "
         "the user's code. After a fix, use replay_request to send the same request again "
@@ -37,6 +38,14 @@ def _safe(func, *args) -> str:
         return func(_repo(), *args)
     except toolkit.TraceNotFound as error:
         return str(error)
+
+
+@server.tool(annotations=READ_ONLY)
+def doctor() -> str:
+    """Check the Profyle setup: which trace database is read, whether traces and their
+    requests are being recorded, and whether the app is running. Says how to fix each
+    problem."""
+    return _safe(toolkit.doctor)
 
 
 @server.tool(annotations=READ_ONLY)

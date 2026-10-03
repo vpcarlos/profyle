@@ -26,7 +26,7 @@ def info():
     else:
         db_size_in_bytes = 0
 
-    print(f"Project → {settings.project_dir}")
+    print(f"DB → {db_path}")
     if db_size_in_bytes > 1e9:
         db_size = f"{round(db_size_in_bytes/1e9, 2)} GB"
     else:
@@ -71,6 +71,12 @@ def replay(args: argparse.Namespace) -> None:
         )
     except toolkit.TraceNotFound as error:
         print(error)
+
+
+def doctor() -> None:
+    from profyle.application.analysis import toolkit
+
+    print(toolkit.doctor(SQLiteTraceRepository(get_connection())))
 
 
 def mcp() -> None:
@@ -119,6 +125,9 @@ def main():
         "--allow-unsafe", action="store_true", help="Allow POST/PUT/PATCH/DELETE"
     )
 
+    # doctor
+    subparsers.add_parser("doctor", help="Check that traces are recorded and replayable")
+
     # mcp
     subparsers.add_parser("mcp", help="Run the MCP server (stdio) for Claude Code / Desktop")
 
@@ -136,6 +145,8 @@ def main():
         analyze(args.trace_id)
     elif args.command == "replay":
         replay(args)
+    elif args.command == "doctor":
+        doctor()
     elif args.command == "mcp":
         mcp()
     else:

@@ -8,6 +8,7 @@ from django.http.request import RawPostDataException
 
 from profyle.application.profyle import profyle
 from profyle.application.request_capture import MAX_BODY_BYTES, build_recorded_request
+from profyle.application.response_fingerprint import MAX_FINGERPRINT_BYTES, fingerprint
 from profyle.domain.trace import RecordedRequest
 from profyle.domain.trace_repository import TraceRepository
 from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
@@ -44,7 +45,7 @@ class ProfyleMiddleware:
                     response = self.get_response(request)
                     return response
                 finally:
-                    trace.request = _recorded_request(request, response)
+                    trace.request = lambda: _recorded_request(request, response)
 
 
 def _recorded_request(request: HttpRequest, response: Any) -> RecordedRequest:
@@ -66,7 +67,7 @@ def _recorded_request(request: HttpRequest, response: Any) -> RecordedRequest:
         host = request.get_host()
     except DisallowedHost:
         host = request.META.get("SERVER_NAME", "localhost")
-    return build_recorded_request(
+    recorded = build_recorded_request(
         method=request.method or "",
         path=request.get_full_path(),
         scheme=request.scheme or "http",
@@ -76,3 +77,7 @@ def _recorded_request(request: HttpRequest, response: Any) -> RecordedRequest:
         body_truncated=truncated,
         status_code=getattr(response, "status_code", None),
     )
+    content = None if getattr(response, "streaming", True) else response.content
+    if content is not None and len(content) <= MAX_FINGERPRINT_BYTES:
+        recorded.response = fingerprint(content, response.get("Content-Type"))
+    return recorded

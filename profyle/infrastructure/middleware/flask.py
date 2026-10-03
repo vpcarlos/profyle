@@ -53,7 +53,7 @@ class ProfyleMiddleware:
                 try:
                     return self.app(environ, start_response_and_capture)
                 finally:
-                    trace.request = build_recorded_request(
+                    trace.request = lambda: build_recorded_request(
                         method=method,
                         path=path,
                         scheme=environ.get("wsgi.url_scheme", "http"),

@@ -1,6 +1,6 @@
 import time
 
-from profyle.domain.trace import Trace, TraceCreate
+from profyle.domain.trace import RecordedRequest, Trace, TraceCreate
 from profyle.domain.trace_repository import TraceRepository
 
 
@@ -39,6 +39,11 @@ class InMemoryTraceRepository(TraceRepository):
             request=new_trace.request,
         )
         self.traces.append(trace)
+
+    def update_trace_request(self, trace_id: int, request: RecordedRequest) -> None:
+        for trace in self.traces:
+            if trace.id == trace_id:
+                trace.request = request
 
     def get_all_traces(self) -> list[Trace]:
         return self.traces
