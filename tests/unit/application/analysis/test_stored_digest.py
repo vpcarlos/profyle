@@ -1,8 +1,7 @@
 from profyle.application.analysis import toolkit
 from profyle.application.analysis.digest import DIGEST_VERSION, build_digest, headline
-from profyle.application.trace.store import store_trace
 from tests.unit.application.analysis.test_digest import make_trace
-from tests.unit.repository import InMemoryTraceRepository
+from tests.unit.repository import InMemoryTraceRepository, store_trace
 
 
 class CountingRepository(InMemoryTraceRepository):
@@ -12,14 +11,10 @@ class CountingRepository(InMemoryTraceRepository):
         super().__init__()
         self.data_loads = 0
 
-    def get_trace_by_id(self, id, include_data=True):
-        trace = super().get_trace_by_id(id, include_data)
-        if trace is None:
-            return None
+    def get_trace(self, trace_id, include_data=True):
         if include_data:
             self.data_loads += 1
-            return trace
-        return trace.model_copy(update={"data": None})
+        return super().get_trace(trace_id, include_data)
 
 
 def repo_with_trace():

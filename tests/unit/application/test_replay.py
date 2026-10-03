@@ -104,7 +104,7 @@ def test_replay_sends_the_same_request_and_reports_the_new_trace(traced_server):
 
 def test_replay_reports_unreachable_app():
     repo = InMemoryTraceRepository()
-    from profyle.application.trace.store import store_trace
+    from tests.unit.repository import store_trace
 
     store_trace(
         raw_trace={"traceEvents": []},

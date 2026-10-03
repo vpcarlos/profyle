@@ -23,8 +23,8 @@ def test_info_and_clean(project_db, monkeypatch, capsys):
     monkeypatch.setattr(os.path, "getsize", lambda path: 3 * 10**9)
     assert "3.0 GB" in run_cli(monkeypatch, capsys, "info")
 
-    assert "records removed" in run_cli(monkeypatch, capsys, "clean")
-    assert project_db.get_all_traces() == []
+    assert "2 traces removed" in run_cli(monkeypatch, capsys, "clean")
+    assert project_db.list_traces() == []
 
 
 def test_info_without_database(tmp_path, monkeypatch, capsys):
@@ -33,11 +33,14 @@ def test_info_without_database(tmp_path, monkeypatch, capsys):
 
 
 def test_analyze(project_db, monkeypatch, capsys):
-    assert "| 2 | GET /users" in run_cli(monkeypatch, capsys, "analyze")  # nothing selected
+    assert "Trace digest — #2 GET /users" in run_cli(monkeypatch, capsys, "analyze")  # newest
     assert "Trace digest — #1 GET /users" in run_cli(monkeypatch, capsys, "analyze", "1")
-    project_db.store_trace_selected(2)
-    assert "Trace digest — #2" in run_cli(monkeypatch, capsys, "analyze")
     assert "Trace 99 not found" in run_cli(monkeypatch, capsys, "analyze", "99")
+
+
+def test_analyze_without_traces(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("PROFYLE_DB", str(tmp_path / "empty.db"))
+    assert "No matching traces" in run_cli(monkeypatch, capsys, "analyze")
 
 
 def test_replay(project_db, monkeypatch, capsys):

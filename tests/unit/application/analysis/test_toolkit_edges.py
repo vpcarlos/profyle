@@ -7,10 +7,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 
 from profyle.application.analysis import toolkit
-from profyle.application.trace.store import store_trace
 from profyle.domain.trace import RecordedRequest
 from tests.unit.application.analysis.test_digest import make_trace
-from tests.unit.repository import InMemoryTraceRepository
+from tests.unit.repository import InMemoryTraceRepository, store_trace
 
 
 def request(base_url="http://127.0.0.1:9", **kwargs):

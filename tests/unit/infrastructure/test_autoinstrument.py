@@ -60,7 +60,7 @@ def test_starlette_apps_are_wrapped_unless_they_use_profyle(isolated):
     assert calls == [plain, explicit, plain]
     assert plain._profyle_wrapper.integration.framework == "Starlette"
     assert explicit._profyle_wrapper is False
-    assert [t.name for t in isolated.get_all_traces()].count("GET /ping") == 2
+    assert [t.name for t in isolated.list_traces()].count("GET /ping") == 2
     assert isolated.get_runtime()["mode"] == "profyle run"
 
 

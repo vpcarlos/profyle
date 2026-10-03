@@ -10,11 +10,7 @@ from django.http.request import RawPostDataException
 from profyle.application.request_capture import MAX_BODY_BYTES, build_recorded_request
 from profyle.application.response_fingerprint import MAX_FINGERPRINT_BYTES, fingerprint
 from profyle.domain.trace import RecordedRequest
-from profyle.domain.trace_repository import TraceRepository
-from profyle.infrastructure.middleware.base import MIDDLEWARE, Integration
-
-# Marker shared with the ASGI/WSGI middlewares so a request is traced only once.
-TRACED = "profyle.traced"
+from profyle.infrastructure.middleware.base import MIDDLEWARE, TRACED, Integration, Middleware
 
 
 def get_setting(name: str, default: Any | None = None) -> Any:
@@ -33,7 +29,7 @@ def _min_duration_setting() -> Any:
     return value
 
 
-class ProfyleMiddleware:
+class ProfyleMiddleware(Middleware):
     """Add "profyle.django.ProfyleMiddleware" to MIDDLEWARE (first, to trace the rest).
 
     PROFYLE_* Django settings act as code configuration; environment variables and
@@ -54,14 +50,6 @@ class ProfyleMiddleware:
             console=get_setting("PROFYLE_CONSOLE"),
         )
 
-    @property
-    def trace_repo(self) -> TraceRepository:
-        return self.integration.repo
-
-    @trace_repo.setter
-    def trace_repo(self, repo: TraceRepository) -> None:
-        self.integration.repo = repo
-
     def __call__(self, request: HttpRequest):
         method = request.method and request.method.upper()
         if not self.integration.config.enabled or not method or _already_traced(request):
@@ -69,7 +57,7 @@ class ProfyleMiddleware:
         request.META[TRACED] = True
 
         response = None
-        with self.integration.tracer(f"{method} {request.get_full_path()}") as trace:
+        with self.integration.tracer(method, request.get_full_path()) as trace:
             try:
                 response = self.get_response(request)
                 return response

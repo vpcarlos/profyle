@@ -3,7 +3,9 @@
 `profyle run <command>` starts the command with this package's `_run/sitecustomize.py`
 on PYTHONPATH; Python imports it at start-up (also in uvicorn's --reload workers) and it
 calls install(). install() hooks the import of supported frameworks and adds the Profyle
-middleware to the app when the framework is loaded:
+middleware to the app when the framework is loaded, and registers the app for
+`profyle doctor` (the start-up message is printed once by `profyle run` itself, as it
+would repeat in reloader processes):
 
 - FastAPI / Starlette: around the middleware stack the app builds;
 - Flask: around `app.wsgi_app`;
@@ -24,7 +26,6 @@ from profyle.infrastructure.middleware.base import PROFYLE_RUN
 DJANGO_MIDDLEWARE = "profyle.infrastructure.middleware.django.AutoProfyleMiddleware"
 
 _installed = False
-_announced: set[str] = set()
 
 
 def install() -> None:
@@ -36,12 +37,6 @@ def install() -> None:
     for name, patch in PATCHES.items():
         if name in sys.modules:
             patch(sys.modules[name])
-
-
-def _announce(framework: str, integration) -> None:
-    """Record the app for `profyle doctor`. The start-up message itself is printed once
-    by `profyle run` (here it would repeat in reloader processes)."""
-    integration.register()
 
 
 # --- FastAPI / Starlette -----------------------------------------------------------
@@ -81,7 +76,7 @@ def _starlette_wrapper(app, original, middleware_class):
 
     framework = "FastAPI" if type(app).__module__.startswith("fastapi") else "Starlette"
     wrapper = middleware_class(call_app, framework=framework, mode=PROFYLE_RUN)
-    _announce(framework, wrapper.integration)
+    wrapper.integration.register()
     return wrapper
 
 
@@ -99,7 +94,7 @@ def _patch_flask(module: ModuleType) -> None:
         # An explicit `app.wsgi_app = ProfyleMiddleware(...)` added later wraps this one
         # and wins: the inner middleware skips requests already traced.
         self.wsgi_app = ProfyleMiddleware(self.wsgi_app, framework="Flask", mode=PROFYLE_RUN)
-        _announce("Flask", self.wsgi_app.integration)
+        self.wsgi_app.integration.register()
 
     flask.__init__ = __init__
 
@@ -141,7 +136,7 @@ def _patch_uvicorn(module: ModuleType) -> None:
         if self.loaded and not _handled_by_framework_hook(app):
             name = _app_name(app)
             self.loaded_app = ProfyleMiddleware(self.loaded_app, framework=name, mode=PROFYLE_RUN)
-            _announce(name, self.loaded_app.integration)
+            self.loaded_app.integration.register()
 
     config.load = load
 

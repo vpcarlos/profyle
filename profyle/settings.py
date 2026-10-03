@@ -28,7 +28,8 @@ def find_project_root(start: str) -> str:
 
 class Settings:
     app_name: str = "Profyle"
-    project_dir: str = os.path.normpath(
+    # The installed profyle package (not the user's project).
+    package_dir: str = os.path.normpath(
         os.path.join(
             os.path.abspath(__file__),
             "..",
@@ -36,7 +37,7 @@ class Settings:
     )
 
     def get_path(self, *args):
-        return os.path.join(self.project_dir, *args)
+        return os.path.join(self.package_dir, *args)
 
     def get_db_path(self) -> str:
         """Where traces live. The app, `profyle start` and the MCP server must agree.

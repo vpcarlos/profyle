@@ -1,6 +1,4 @@
-import time
 from typing import Any, Literal
-from uuid import uuid4
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -32,40 +30,36 @@ class RecordedRequest(BaseModel):
 
 
 class Trace(BaseModel):
-    name: str
-    id: int | str = Field(description="The id of the trace")
+    """A stored trace. `data` (the raw VizTracer trace, often megabytes) is only loaded
+    when asked for."""
+
+    id: int
+    name: str = Field(description='What was traced, e.g. "GET /users?page=2"')
     timestamp: str = ""
-    duration: float = 0
-    data: dict[Any, Any] | None = None
+    duration: float = Field(0, description="Microseconds, VizTracer's unit")
+    data: dict[str, Any] | None = None
     request: RecordedRequest | None = None
     headline: str | None = Field(None, description="Main finding of the stored digest")
 
+    @property
+    def duration_ms(self) -> float:
+        return self.duration / 1000
 
-class TraceCreate(BaseModel):
-    id: str = Field(
-        description="The id of the trace",
-        exclude=True,
-        default_factory=lambda: uuid4().hex,
-    )
-    raw_trace: dict[Any, Any]
+
+class NewTrace(BaseModel):
+    """A trace about to be stored; the repository assigns its id and timestamp."""
+
     name: str
+    raw_trace: dict[str, Any]
     request: RecordedRequest | None = None
-    timestamp: str = Field(
-        description="The timestamp of the trace",
-        default_factory=lambda: str(time.time()),
-    )
 
     @computed_field
     @property
     def duration(self) -> float:
-        any_trace_to_analize = any(
-            True for trace in self.raw_trace.get("traceEvents", []) if trace.get("ts")
-        )
-        if not any_trace_to_analize:
-            return 0
-
-        start = min(
-            trace.get("ts", 0) for trace in self.raw_trace.get("traceEvents", []) if trace.get("ts")
-        )
-        end = max(trace.get("ts", 0) for trace in self.raw_trace.get("traceEvents", []))
-        return end - start
+        """From the first to the last event, in microseconds."""
+        starts, ends = [], []
+        for event in self.raw_trace.get("traceEvents", []):
+            if event.get("ts"):
+                starts.append(event["ts"])
+                ends.append(event["ts"] + (event.get("dur") or 0))
+        return max(ends) - min(starts) if starts else 0

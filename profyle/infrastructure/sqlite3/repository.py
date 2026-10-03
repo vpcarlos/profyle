@@ -2,222 +2,155 @@ import json
 from sqlite3 import Connection, Error, Row
 from typing import Any
 
-from profyle.domain.trace import RecordedRequest, Trace, TraceCreate
+from profyle.domain.trace import NewTrace, RecordedRequest, Trace
 from profyle.domain.trace_repository import TraceRepository
 from profyle.infrastructure.sqlite3.get_connection import get_connection
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS traces (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    data JSON NOT NULL,
+    duration REAL NOT NULL,
+    name TEXT NOT NULL,
+    request JSON,
+    digest JSON,
+    headline TEXT
+);
+CREATE TABLE IF NOT EXISTS runtime (id INTEGER PRIMARY KEY, info JSON);
+"""
+# Columns added after the first release, for databases created by older versions.
+ADDED_COLUMNS = {"request": "JSON", "digest": "JSON", "headline": "TEXT"}
+
+# Every column but the (large) trace data.
+SUMMARY_COLUMNS = "id, timestamp, duration, name, request, headline"
 
 
 class SQLiteTraceRepository(TraceRepository):
     def __init__(self, db: Connection | None = None):
-        if not db:
-            db = get_connection()
-        self.db = db
+        self.db = db or get_connection()
         # File behind the connection ("" for in-memory databases).
-        self.db_path: str = db.execute("PRAGMA database_list").fetchone()[2] or ""
+        self.db_path: str = self.db.execute("PRAGMA database_list").fetchone()[2] or ""
         # Readers (CLI, MCP server) may open the database before the app wrote anything.
-        self.create_trace_table()
-        self.create_trace_selected_table()
+        self._create_schema()
 
-    def create_trace_selected_table(self) -> None:
-        cursor = self.db.cursor()
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS trace_selected (
-                id INTEGER PRIMARY KEY NOT NULL,
-                trace_id INTEGER
-            );
-            """
-        )
+    def close(self) -> None:
+        self.db.close()
 
-    def create_trace_table(self) -> None:
-        cursor = self.db.cursor()
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS traces (
-                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-                data JSON NOT NULL,
-                duration REAL NOT NULL,
-                name VARCHAR(64) NOT NULL,
-                request JSON,
-                digest JSON,
-                headline TEXT
-            );
-            """
-        )
-        # Databases created by older versions lack the newer columns.
-        columns = {row[1] for row in cursor.execute("PRAGMA table_info(traces)")}
-        for column, kind in (("request", "JSON"), ("digest", "JSON"), ("headline", "TEXT")):
+    def _create_schema(self) -> None:
+        self.db.executescript(SCHEMA)
+        columns = {row["name"] for row in self._query("PRAGMA table_info(traces)")}
+        for column, kind in ADDED_COLUMNS.items():
             if column not in columns:
-                cursor.execute(f"ALTER TABLE traces ADD COLUMN {column} {kind}")
+                self.db.execute(f"ALTER TABLE traces ADD COLUMN {column} {kind}")
         self.db.commit()
 
-    def delete_all_traces(self) -> int:
+    def _query(self, sql: str, params: tuple = ()) -> list[Row]:
         cursor = self.db.cursor()
-        cursor.execute(
-            """
-            DELETE FROM traces
-            """
-        )
-        self.db.commit()
-        cursor.close()
-        return cursor.rowcount
-
-    def deleted_all_selected_traces(self) -> int:
-        cursor = self.db.cursor()
-        cursor.execute(
-            """
-            DELETE FROM trace_selected
-            """
-        )
-        self.db.commit()
-        cursor.close()
-        return cursor.rowcount
-
-    def vacuum(self) -> None:
-        cursor = self.db.cursor()
-        cursor.execute(
-            """
-            VACUUM
-            """
-        )
-        self.db.commit()
-        cursor.close()
-
-    def store_trace_selected(self, trace_id: int) -> None:
+        cursor.row_factory = Row
         try:
-            self.create_trace_selected_table()
-            cursor = self.db.cursor()
-            replace_query = """
-                    REPLACE INTO trace_selected
-                    ( id, trace_id) VALUES (?, ?)
-                """
-            data_tuple = (1, trace_id)
-            cursor.execute(replace_query, data_tuple)
-            self.db.commit()
+            return cursor.execute(sql, params).fetchall()
+        finally:
             cursor.close()
-        except Error as error:
-            print("Failed to insert data into selected_trace table", error)
 
-    def store_trace(self, trace: TraceCreate) -> int | None:
+    def _change(self, sql: str, params: tuple = ()) -> int:
+        """Run a statement that writes; returns the id of the inserted row for an
+        INSERT, otherwise how many rows changed."""
+        cursor = self.db.cursor()
         try:
-            self.create_trace_table()
-            cursor = self.db.cursor()
+            cursor.execute(sql, params)
+            self.db.commit()
+            return cursor.lastrowid if sql.lstrip().startswith("INSERT") else cursor.rowcount
+        finally:
+            cursor.close()
 
-            insert_query = """
-                INSERT INTO traces
-                ( data, duration, name, request) VALUES (?, ?, ?, ?)
-            """
+    # --- Traces ---------------------------------------------------------------------
 
-            data_tuple = (
-                json.dumps(trace.raw_trace),
-                trace.duration,
-                trace.name,
-                trace.request.model_dump_json() if trace.request else None,
+    def add_trace(self, trace: NewTrace) -> int | None:
+        try:
+            return self._change(
+                "INSERT INTO traces (data, duration, name, request) VALUES (?, ?, ?, ?)",
+                (
+                    json.dumps(trace.raw_trace),
+                    trace.duration,
+                    trace.name,
+                    trace.request.model_dump_json() if trace.request else None,
+                ),
             )
-            cursor.execute(insert_query, data_tuple)
-            self.db.commit()
-            trace_id = cursor.lastrowid
-            cursor.close()
-            return trace_id
-
         except Error as error:
-            print("Failed to insert data into trace table", error)
+            # Losing one trace must never break the request that produced it.
+            from profyle.infrastructure.console import say
+
+            say(f"could not store the trace of {trace.name}: {error}")
             return None
 
-    def update_trace_request(self, trace_id: int, request: RecordedRequest) -> None:
-        cursor = self.db.cursor()
-        cursor.execute(
+    def get_trace(self, trace_id: int, include_data: bool = True) -> Trace | None:
+        columns = SUMMARY_COLUMNS + (", data" if include_data else "")
+        rows = self._query(f"SELECT {columns} FROM traces WHERE id = ?", (trace_id,))
+        return _to_trace(rows[0]) if rows else None
+
+    def list_traces(
+        self,
+        limit: int | None = None,
+        name_contains: str | None = None,
+        min_duration_ms: float = 0,
+    ) -> list[Trace]:
+        rows = self._query(
+            f"SELECT {SUMMARY_COLUMNS} FROM traces "
+            "WHERE instr(lower(name), lower(?)) > 0 AND duration >= ? "
+            "ORDER BY id DESC LIMIT ?",
+            (name_contains or "", min_duration_ms * 1000, -1 if limit is None else limit),
+        )
+        return [_to_trace(row) for row in rows]
+
+    def latest_trace_id(self) -> int:
+        return self._query("SELECT COALESCE(MAX(id), 0) AS id FROM traces")[0]["id"]
+
+    def update_request(self, trace_id: int, request: RecordedRequest) -> None:
+        self._change(
             "UPDATE traces SET request = ? WHERE id = ?",
             (request.model_dump_json(), trace_id),
         )
-        self.db.commit()
-        cursor.close()
 
-    def store_runtime(self, info: dict[str, Any]) -> None:
-        cursor = self.db.cursor()
-        cursor.execute("CREATE TABLE IF NOT EXISTS runtime (id INTEGER PRIMARY KEY, info JSON)")
-        cursor.execute("REPLACE INTO runtime (id, info) VALUES (1, ?)", (json.dumps(info),))
-        self.db.commit()
-        cursor.close()
+    def delete_trace(self, trace_id: int) -> None:
+        self._change("DELETE FROM traces WHERE id = ?", (trace_id,))
 
-    def get_runtime(self) -> dict[str, Any] | None:
-        cursor = self.db.cursor()
-        cursor.execute("CREATE TABLE IF NOT EXISTS runtime (id INTEGER PRIMARY KEY, info JSON)")
-        row = cursor.execute("SELECT info FROM runtime WHERE id = 1").fetchone()
-        cursor.close()
-        return json.loads(row[0]) if row else None
+    def delete_all_traces(self) -> int:
+        deleted = self._change("DELETE FROM traces")
+        self.db.execute("VACUUM")
+        return deleted
+
+    # --- Digests --------------------------------------------------------------------
 
     def get_digest(self, trace_id: int) -> dict[str, Any] | None:
-        cursor = self.db.cursor()
-        row = cursor.execute("SELECT digest FROM traces WHERE id = ?", (trace_id,)).fetchone()
-        cursor.close()
-        return json.loads(row[0]) if row and row[0] else None
+        rows = self._query("SELECT digest FROM traces WHERE id = ?", (trace_id,))
+        return json.loads(rows[0]["digest"]) if rows and rows[0]["digest"] else None
 
     def store_digest(self, trace_id: int, digest: dict[str, Any], headline: str) -> None:
-        cursor = self.db.cursor()
-        cursor.execute(
+        self._change(
             "UPDATE traces SET digest = ?, headline = ? WHERE id = ?",
             (json.dumps(digest), headline, trace_id),
         )
-        self.db.commit()
-        cursor.close()
 
     def trace_ids_without_digest(self, limit: int) -> list[int]:
-        cursor = self.db.cursor()
-        rows = cursor.execute(
+        rows = self._query(
             "SELECT id FROM traces WHERE digest IS NULL ORDER BY id DESC LIMIT ?", (limit,)
-        ).fetchall()
-        cursor.close()
-        return [row[0] for row in rows]
-
-    def get_all_traces(self) -> list[Trace]:
-        self.db.row_factory = Row
-        cursor = self.db.cursor()
-        cursor.execute("""
-            SELECT
-            id, timestamp, duration, name, request, headline
-            FROM traces
-            ORDER BY timestamp DESC, id DESC
-        """)
-
-        traces = []
-        for row in cursor.fetchall():
-            trace = dict(row)
-            if isinstance(trace.get("request"), str):
-                trace["request"] = json.loads(trace["request"])
-            traces.append(Trace(**trace))
-        return traces
-
-    def get_trace_by_id(self, id: int, include_data: bool = True) -> Trace | None:
-        self.db.row_factory = Row
-        cursor = self.db.cursor()
-        columns = "id, timestamp, duration, name, request, headline" + (
-            ", data" if include_data else ""
         )
-        cursor.execute(f"SELECT {columns} FROM traces where id = ?", (id,))
-        trace = cursor.fetchone()
-        if trace:
-            trace_dict = dict(trace)
-            for column in ("data", "request"):
-                if isinstance(trace_dict.get(column), str):
-                    trace_dict[column] = json.loads(trace_dict[column])
-            return Trace(**trace_dict)
+        return [row["id"] for row in rows]
 
-    def get_trace_selected(self) -> int | None:
-        self.db.row_factory = Row
-        cursor = self.db.cursor()
-        cursor.execute("SELECT trace_id FROM trace_selected where id = ?", (1,))
-        trace = cursor.fetchone()
-        return trace["trace_id"] if trace else None
+    # --- Runtime --------------------------------------------------------------------
 
-    def delete_trace_by_id(self, trace_id: int):
-        cursor = self.db.cursor()
-        cursor.execute(
-            """
-            DELETE FROM traces WHERE id = ?
-            """,
-            (trace_id,),
-        )
-        self.db.commit()
-        cursor.close()
+    def store_runtime(self, info: dict[str, Any]) -> None:
+        self._change("REPLACE INTO runtime (id, info) VALUES (1, ?)", (json.dumps(info),))
+
+    def get_runtime(self) -> dict[str, Any] | None:
+        rows = self._query("SELECT info FROM runtime WHERE id = 1")
+        return json.loads(rows[0]["info"]) if rows else None
+
+
+def _to_trace(row: Row) -> Trace:
+    values = dict(row)
+    for column in ("data", "request"):
+        if isinstance(values.get(column), str):
+            values[column] = json.loads(values[column])
+    return Trace(**values)

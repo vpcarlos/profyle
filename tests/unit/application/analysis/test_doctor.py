@@ -1,9 +1,8 @@
 import socket
 
 from profyle.application.analysis import toolkit
-from profyle.application.trace.store import store_trace
 from profyle.domain.trace import RecordedRequest
-from tests.unit.repository import InMemoryTraceRepository
+from tests.unit.repository import InMemoryTraceRepository, store_trace
 
 
 def test_empty_database_explains_the_setup():

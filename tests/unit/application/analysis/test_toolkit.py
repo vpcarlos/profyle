@@ -1,9 +1,8 @@
 import pytest
 
 from profyle.application.analysis import toolkit
-from profyle.application.trace.store import store_trace
 from tests.unit.application.analysis.test_digest import make_trace
-from tests.unit.repository import InMemoryTraceRepository
+from tests.unit.repository import InMemoryTraceRepository, store_trace
 
 
 @pytest.fixture

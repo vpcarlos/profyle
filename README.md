@@ -365,7 +365,7 @@ DB size → 30.0 MB
 </div>
 
 ### analyze
-* Print the LLM-ready digest of a trace (defaults to the selected one)
+* Print the LLM-ready digest of a trace (defaults to the newest one)
 <div class="termy">
 
 ```console

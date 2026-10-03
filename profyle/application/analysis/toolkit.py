@@ -36,7 +36,7 @@ class TraceNotFound(LookupError):
 
 
 def _load(repo: TraceRepository, trace_id: int, include_data: bool = True) -> Trace:
-    trace = repo.get_trace_by_id(trace_id, include_data=include_data)
+    trace = repo.get_trace(trace_id, include_data=include_data)
     if not trace or (include_data and not trace.data):
         raise TraceNotFound(f"Trace {trace_id} not found")
     return trace
@@ -47,13 +47,13 @@ def _digest(repo: TraceRepository, trace: Trace) -> dict[str, Any]:
 
     Digests are computed on the reading side (here, or ahead of time by
     precompute_digests), never in the app's request path."""
-    trace_id = int(trace.id)
+    trace_id = trace.id
     stored = repo.get_digest(trace_id)
     if stored and stored.get("version") == DIGEST_VERSION:
         return stored
     data = trace.data
     if data is None:
-        full = repo.get_trace_by_id(trace_id)
+        full = repo.get_trace(trace_id)
         data = full.data if full else None
     if not data:
         raise TraceNotFound(f"Trace {trace_id} has no data")
@@ -66,7 +66,7 @@ def precompute_digests(repo: TraceRepository, limit: int = 50) -> int:
     """Build missing digests for the newest traces; returns how many were built."""
     built = 0
     for trace_id in repo.trace_ids_without_digest(limit):
-        trace = repo.get_trace_by_id(trace_id)
+        trace = repo.get_trace(trace_id)
         if trace and trace.data:
             _digest(repo, trace)
             built += 1
@@ -79,10 +79,7 @@ def list_traces(
     name_contains: str | None = None,
     min_duration_ms: float = 0,
 ) -> str:
-    traces = repo.get_all_traces()
-    if name_contains:
-        traces = [t for t in traces if name_contains.lower() in t.name.lower()]
-    traces = [t for t in traces if t.duration / 1000 >= min_duration_ms][:limit]
+    traces = repo.list_traces(limit, name_contains, min_duration_ms)
     if not traces:
         return "No matching traces. " + _empty_db_hint()
     rows = [
@@ -90,7 +87,7 @@ def list_traces(
         "|---|---|---|---|---|",
     ]
     rows += [
-        f"| {t.id} | {t.name} | {round(t.duration / 1000, 2)} | {t.timestamp} "
+        f"| {t.id} | {t.name} | {round(t.duration_ms, 2)} | {t.timestamp} "
         f"| {t.headline or 'not analyzed yet'} |"
         for t in traces
     ]
@@ -101,9 +98,9 @@ def slowest_endpoints(repo: TraceRepository, limit: int = 15) -> str:
     """Aggregate recorded traces per request name: count, median, p95 and max duration."""
     groups: dict[str, list[float]] = defaultdict(list)
     traces_by_name: dict[str, list[Trace]] = defaultdict(list)
-    for trace in repo.get_all_traces():
+    for trace in repo.list_traces():
         name = trace.name.split("?")[0]
-        groups[name].append(trace.duration / 1000)
+        groups[name].append(trace.duration_ms)
         traces_by_name[name].append(trace)
     if not groups:
         return "No traces recorded yet. " + _empty_db_hint()
@@ -128,7 +125,7 @@ def slowest_endpoints(repo: TraceRepository, limit: int = 15) -> str:
 def _typical_finding(traces: list[Trace], durations_ms: list[float]) -> str:
     # The trace closest to the median: the slowest one is often a cold first request.
     median = statistics.median(durations_ms)
-    typical = min(traces, key=lambda t: abs(t.duration / 1000 - median))
+    typical = min(traces, key=lambda t: abs(t.duration_ms - median))
     return f"#{typical.id}: {typical.headline or 'not analyzed yet'}"
 
 
@@ -204,7 +201,7 @@ def replay_trace(
         if trace and trace.request and not trace.request.response and response.fingerprint:
             # Frameworks whose middleware cannot see the body (Flask) get it from here.
             trace.request.response = response.fingerprint
-            repo.update_trace_request(int(trace.id), trace.request)
+            repo.update_request(trace.id, trace.request)
         runs.append((response, trace))
 
     return _render_replay(
@@ -216,7 +213,7 @@ def _render_replay(original: Trace, runs, missing_auth: list[str], headers) -> s
     request = original.request
     lines = [
         f"Replayed {request.method} {request.path} (original trace #{original.id}: "
-        f"{round(original.duration / 1000, 2)} ms, status {request.status_code}).",
+        f"{round(original.duration_ms, 2)} ms, status {request.status_code}).",
         "",
         f"| run | status | response ms | new trace | trace ms | body vs #{original.id} |",
         "|---|---|---|---|---|---|",
@@ -233,8 +230,8 @@ def _render_replay(original: Trace, runs, missing_auth: list[str], headers) -> s
         trace_cell = ms_cell = "not recorded"
         if trace:
             new_ids.append(trace.id)
-            durations.append(trace.duration / 1000)
-            trace_cell, ms_cell = f"#{trace.id}", str(round(trace.duration / 1000, 2))
+            durations.append(trace.duration_ms)
+            trace_cell, ms_cell = f"#{trace.id}", str(round(trace.duration_ms, 2))
         body = VERDICT_TEXT[compare_responses(request.response, response.fingerprint)]
         lines.append(
             f"| {number} | {response.status_code} | {response.elapsed_ms} | {trace_cell} "
@@ -327,7 +324,7 @@ def _request_summary(trace: Trace) -> str:
 
 
 def _latest_trace_id(repo: TraceRepository) -> int:
-    return max((int(t.id) for t in repo.get_all_traces()), default=0)
+    return repo.latest_trace_id()
 
 
 def _wait_for_trace(
@@ -336,9 +333,11 @@ def _wait_for_trace(
     # The middleware stores the trace after the response is sent, so poll briefly.
     deadline = time.monotonic() + wait_seconds
     while True:
-        new = [t for t in repo.get_all_traces() if int(t.id) > after_id and t.name == name]
+        new = [
+            t for t in repo.list_traces(name_contains=name) if t.id > after_id and t.name == name
+        ]
         if new:
-            return min(new, key=lambda t: int(t.id))
+            return min(new, key=lambda t: t.id)
         if time.monotonic() >= deadline:
             return None
         time.sleep(0.25)
@@ -362,7 +361,7 @@ def doctor(repo: TraceRepository) -> str:
         if os.getenv("PROFYLE_PROJECT_DIR")
         else "project root found from the working directory"
     )
-    traces = sorted(repo.get_all_traces(), key=lambda t: int(t.id))
+    traces = list(reversed(repo.list_traces()))
     if traces:
         newest = traces[-1]
         checks.append(
@@ -485,4 +484,4 @@ def summary_line(repo: TraceRepository, trace_id: int) -> str:
     """One line describing a stored trace, e.g. for the console of the traced app."""
     trace = _load(repo, trace_id, include_data=False)
     finding = headline(_digest(repo, trace))
-    return f"{trace.name} {round(trace.duration / 1000, 1)} ms · #{trace.id} · {finding}"
+    return f"{trace.name} {round(trace.duration_ms, 1)} ms · #{trace.id} · {finding}"

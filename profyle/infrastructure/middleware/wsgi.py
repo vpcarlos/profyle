@@ -4,13 +4,10 @@ import io
 
 from profyle.application.request_capture import MAX_BODY_BYTES, build_recorded_request
 from profyle.domain.trace_repository import TraceRepository
-from profyle.infrastructure.middleware.base import MIDDLEWARE, Integration
-
-# Set in the environ by the outermost Profyle middleware so nested ones skip the request.
-TRACED = "profyle.traced"
+from profyle.infrastructure.middleware.base import MIDDLEWARE, TRACED, Integration, Middleware
 
 
-class ProfyleMiddleware:
+class ProfyleMiddleware(Middleware):
     """Trace every HTTP request of a WSGI app.
 
     Settings left as None come from PROFYLE_* environment variables, `[tool.profyle]` in
@@ -42,14 +39,6 @@ class ProfyleMiddleware:
             console=console,
         )
 
-    @property
-    def trace_repo(self) -> TraceRepository:
-        return self.integration.repo
-
-    @trace_repo.setter
-    def trace_repo(self, repo: TraceRepository) -> None:
-        self.integration.repo = repo
-
     def __call__(self, environ, start_response):
         if not self.integration.config.enabled or environ.get(TRACED):
             return self.app(environ, start_response)
@@ -64,7 +53,7 @@ class ProfyleMiddleware:
             status_code = int(status.split(" ", 1)[0])
             return start_response(status, headers, *args)
 
-        with self.integration.tracer(f"{method} {path}") as trace:
+        with self.integration.tracer(method, path) as trace:
             try:
                 return self.app(environ, start_response_and_capture)
             finally:

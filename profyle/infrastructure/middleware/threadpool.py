@@ -25,7 +25,7 @@ import threading
 
 from viztracer import VizTracer
 
-from profyle.application.profyle import active_tracer
+from profyle.application.request_trace import active_tracer
 
 _patched: set[str] = set()
 

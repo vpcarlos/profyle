@@ -1,47 +1,45 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from profyle.domain.trace import RecordedRequest, Trace, TraceCreate
+from profyle.domain.trace import NewTrace, RecordedRequest, Trace
 
 
 class TraceRepository(ABC):
-    @abstractmethod
-    def create_trace_selected_table(self) -> None: ...
+    """Where traces are kept, together with what is derived from them."""
+
+    # --- Traces ---------------------------------------------------------------------
 
     @abstractmethod
-    def create_trace_table(self) -> None: ...
-
-    @abstractmethod
-    def delete_all_traces(self) -> int: ...
-
-    @abstractmethod
-    def deleted_all_selected_traces(self) -> int: ...
-
-    @abstractmethod
-    def vacuum(self) -> None: ...
-
-    @abstractmethod
-    def store_trace_selected(self, trace_id: int) -> None: ...
-
-    @abstractmethod
-    def store_trace(self, new_trace: TraceCreate) -> int | None:
+    def add_trace(self, trace: NewTrace) -> int | None:
         """Store a trace and return its id (None if it could not be stored)."""
 
     @abstractmethod
-    def update_trace_request(self, trace_id: int, request: RecordedRequest) -> None: ...
+    def get_trace(self, trace_id: int, include_data: bool = True) -> Trace | None: ...
 
     @abstractmethod
-    def get_all_traces(self) -> list[Trace]: ...
+    def list_traces(
+        self,
+        limit: int | None = None,
+        name_contains: str | None = None,
+        min_duration_ms: float = 0,
+    ) -> list[Trace]:
+        """Newest first, without their data. `name_contains` ignores case."""
 
     @abstractmethod
-    def get_trace_by_id(self, id: int, include_data: bool = True) -> Trace | None: ...
+    def latest_trace_id(self) -> int:
+        """0 when there are no traces."""
 
     @abstractmethod
-    def store_runtime(self, info: dict[str, Any]) -> None:
-        """Record the app process currently writing traces (shown by `profyle doctor`)."""
+    def update_request(self, trace_id: int, request: RecordedRequest) -> None: ...
 
     @abstractmethod
-    def get_runtime(self) -> dict[str, Any] | None: ...
+    def delete_trace(self, trace_id: int) -> None: ...
+
+    @abstractmethod
+    def delete_all_traces(self) -> int:
+        """Delete every trace and free the space; returns how many were deleted."""
+
+    # --- Digests: the analysis of a trace, computed once on the reading side --------
 
     @abstractmethod
     def get_digest(self, trace_id: int) -> dict[str, Any] | None: ...
@@ -52,8 +50,10 @@ class TraceRepository(ABC):
     @abstractmethod
     def trace_ids_without_digest(self, limit: int) -> list[int]: ...
 
-    @abstractmethod
-    def get_trace_selected(self) -> int | None: ...
+    # --- Runtime: the app currently writing traces (shown by `profyle doctor`) ------
 
     @abstractmethod
-    def delete_trace_by_id(self, trace_id: int): ...
+    def store_runtime(self, info: dict[str, Any]) -> None: ...
+
+    @abstractmethod
+    def get_runtime(self) -> dict[str, Any] | None: ...

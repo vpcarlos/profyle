@@ -1,17 +1,22 @@
-"""What every integration (ASGI, WSGI, Django, `profyle run`) shares."""
+"""What every integration (ASGI, WSGI, Django, Tornado, `profyle run`) shares."""
 
 import os
 import sys
 import time
 from importlib.metadata import PackageNotFoundError, version
 
-from profyle.application.profyle import profyle
+from profyle.application.request_trace import RequestTrace
 from profyle.config import load_config
 from profyle.domain.trace_repository import TraceRepository
 from profyle.infrastructure.middleware.threadpool import trace_worker_threads
 
+# How the app was instrumented (shown by `profyle doctor`).
 MIDDLEWARE = "middleware"
 PROFYLE_RUN = "profyle run"
+
+# Marks a request as traced (in the ASGI scope, WSGI environ or Django META) so nested
+# integrations, e.g. an explicit middleware plus `profyle run`, trace it only once.
+TRACED = "profyle.traced"
 
 
 class Integration:
@@ -46,11 +51,14 @@ class Integration:
     def repo(self, repo: TraceRepository) -> None:
         self._repo = repo
 
-    def tracer(self, name: str) -> profyle:
+    def tracer(self, method: str, path: str) -> RequestTrace:
+        """The tracer of one request; `path` includes the query string."""
         if not self._registered:
             self.register()
-        return profyle(
+        name = f"{method} {path}"
+        return RequestTrace(
             name=name,
+            path=path,
             repo=self.repo,
             pattern=self.config.pattern,
             max_stack_depth=self.config.max_stack_depth,
@@ -95,6 +103,20 @@ class Integration:
             )
         except Exception:
             pass  # diagnostics must never break the app
+
+
+class Middleware:
+    """Base of the middlewares: each owns an `integration`."""
+
+    integration: Integration
+
+    @property
+    def trace_repo(self) -> TraceRepository:
+        return self.integration.repo
+
+    @trace_repo.setter
+    def trace_repo(self, repo: TraceRepository) -> None:
+        self.integration.repo = repo
 
 
 def _profyle_version() -> str:

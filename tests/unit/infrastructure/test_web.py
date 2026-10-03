@@ -2,7 +2,15 @@
 
 import asyncio
 
+import pytest
 from fastapi.testclient import TestClient
+
+
+@pytest.fixture(autouse=True)
+def no_trace_opened_yet():
+    from profyle.infrastructure.api.routes import app
+
+    app.state.opened_trace = None
 
 
 def client():
@@ -46,7 +54,7 @@ def test_selected_trace_that_was_deleted(project_db):
         assert c.delete("/traces/2").status_code == 204
         assert c.get("/localtrace").json() == {}
         assert c.get("/file_info").json() == {}
-    assert [t.id for t in project_db.get_all_traces()] == [1]
+    assert [t.id for t in project_db.list_traces()] == [1]
 
 
 def test_start_server(monkeypatch):

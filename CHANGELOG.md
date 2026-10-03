@@ -49,11 +49,19 @@ All notable changes to this project are documented here. The format follows
   middlewares; middleware settings default to `None` (unset) so the configuration
   sources above apply.
 - The trace viewer no longer sends permissive CORS headers.
+- `profyle analyze` without an id analyzes the newest trace. The trace opened in the
+  viewer is remembered by the viewer instead of the database.
+- Listing and searching traces is done in the database instead of loading every trace,
+  and the trace tables are created once per process instead of on every request.
+- Internal code reorganized for readability (`RequestTrace`, a smaller
+  `TraceRepository`); the code base is formatted with `ruff format`.
 
 ### Removed
 - Unused trace models and the redundant table-creation startup hook of the web viewer.
 
 ### Fixed
+- The duration of a trace missed the time spent in its last call.
+- The trace viewer left a database connection open per request.
 - `profyle run uvicorn --factory` reported the app as `str`; it is now
   reported as a plain ASGI app.
 - Concurrent requests corrupted each other's traces (VizTracer: "Overwrite tracer!").

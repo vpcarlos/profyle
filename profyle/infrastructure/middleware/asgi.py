@@ -7,7 +7,7 @@ from profyle.application.request_capture import MAX_BODY_BYTES, build_recorded_r
 from profyle.application.response_fingerprint import MAX_FINGERPRINT_BYTES, fingerprint
 from profyle.domain.trace import RecordedRequest
 from profyle.domain.trace_repository import TraceRepository
-from profyle.infrastructure.middleware.base import MIDDLEWARE, Integration
+from profyle.infrastructure.middleware.base import MIDDLEWARE, TRACED, Integration, Middleware
 
 Scope = MutableMapping[str, Any]
 Message = MutableMapping[str, Any]
@@ -15,12 +15,8 @@ Receive = Callable[[], Awaitable[Message]]
 Send = Callable[[Message], Awaitable[None]]
 ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 
-# Set on the scope by the outermost Profyle middleware, so nested ones (an explicit
-# middleware plus `profyle run`, for instance) do not trace the same request twice.
-TRACED = "profyle.traced"
 
-
-class ProfyleMiddleware:
+class ProfyleMiddleware(Middleware):
     """Trace every HTTP request of an ASGI app.
 
     Settings left as None come from PROFYLE_* environment variables, `[tool.profyle]` in
@@ -52,14 +48,6 @@ class ProfyleMiddleware:
             console=console,
         )
 
-    @property
-    def trace_repo(self) -> TraceRepository:
-        return self.integration.repo
-
-    @trace_repo.setter
-    def trace_repo(self, repo: TraceRepository) -> None:
-        self.integration.repo = repo
-
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if not self.integration.config.enabled or scope["type"] != "http" or scope.get(TRACED):
             await self.app(scope, receive, send)
@@ -75,7 +63,7 @@ class ProfyleMiddleware:
             path = f"{path}?{query_string}"
 
         exchange = _ExchangeRecorder(scope, receive, send)
-        with self.integration.tracer(f"{method} {path}") as trace:
+        with self.integration.tracer(method, path) as trace:
             try:
                 await self.app(scope, exchange.receive, exchange.send)
             finally:

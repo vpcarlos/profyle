@@ -1,6 +1,7 @@
 import time
+from typing import Any
 
-from profyle.domain.trace import RecordedRequest, Trace, TraceCreate
+from profyle.domain.trace import NewTrace, RecordedRequest, Trace
 from profyle.domain.trace_repository import TraceRepository
 
 
@@ -8,74 +9,73 @@ class InMemoryTraceRepository(TraceRepository):
     def __init__(self):
         self.traces: list[Trace] = []
         self.digests: dict[int, dict] = {}
-        self.selected_trace: int = 0
+        self.runtime: dict | None = None
 
-    def create_trace_selected_table(self) -> None: ...
+    def add_trace(self, trace: NewTrace) -> int:
+        stored = Trace(
+            id=self.latest_trace_id() + 1,
+            timestamp=str(time.time()),
+            data=trace.raw_trace,
+            duration=trace.duration,
+            name=trace.name,
+            request=trace.request,
+        )
+        self.traces.append(stored)
+        return stored.id
 
-    def create_trace_table(self) -> None: ...
+    def get_trace(self, trace_id: int, include_data: bool = True) -> Trace | None:
+        trace = next((t for t in self.traces if t.id == trace_id), None)
+        if trace is None or include_data:
+            return trace
+        return trace.model_copy(update={"data": None})
 
-    def deleted_all_selected_traces(self) -> int: ...
+    def list_traces(self, limit=None, name_contains=None, min_duration_ms=0) -> list[Trace]:
+        traces = [
+            t
+            for t in reversed(self.traces)
+            if (name_contains or "").lower() in t.name.lower() and t.duration_ms >= min_duration_ms
+        ]
+        return traces[:limit]
+
+    def latest_trace_id(self) -> int:
+        return max((t.id for t in self.traces), default=0)
+
+    def update_request(self, trace_id: int, request: RecordedRequest) -> None:
+        self._stored(trace_id).request = request
+
+    def delete_trace(self, trace_id: int) -> None:
+        self.traces = [t for t in self.traces if t.id != trace_id]
 
     def delete_all_traces(self) -> int:
         removed = len(self.traces)
         self.traces = []
         return removed
 
-    def vacuum(self) -> None: ...
-
-    def store_trace_selected(self, trace_id: int) -> None:
-        self.selected_trace = trace_id
-
-    def store_trace(self, new_trace: TraceCreate) -> int:
-        trace = Trace(
-            id=len(self.traces) + 1,
-            timestamp=str(time.time()),
-            data=new_trace.raw_trace,
-            duration=new_trace.duration,
-            name=new_trace.name,
-            request=new_trace.request,
-        )
-        self.traces.append(trace)
-        return trace.id
-
-    def update_trace_request(self, trace_id: int, request: RecordedRequest) -> None:
-        for trace in self.traces:
-            if trace.id == trace_id:
-                trace.request = request
-
-    def get_all_traces(self) -> list[Trace]:
-        return self.traces
-
-    def store_runtime(self, info: dict) -> None:
-        self.runtime = info
-
-    def get_runtime(self) -> dict | None:
-        return getattr(self, "runtime", None)
-
     def get_digest(self, trace_id: int) -> dict | None:
         return self.digests.get(trace_id)
 
     def store_digest(self, trace_id: int, digest: dict, headline: str) -> None:
         self.digests[trace_id] = digest
-        for trace in self.traces:
-            if trace.id == trace_id:
-                trace.headline = headline
+        self._stored(trace_id).headline = headline
 
     def trace_ids_without_digest(self, limit: int) -> list[int]:
         missing = [t.id for t in reversed(self.traces) if t.id not in self.digests]
         return missing[:limit]
 
-    def get_trace_by_id(self, id: int, include_data: bool = True) -> Trace | None:
-        for trace in self.traces:
-            if trace.id == id:
-                return trace
-        return
+    def _stored(self, trace_id: int) -> Trace:
+        return next(t for t in self.traces if t.id == trace_id)
 
-    def get_trace_selected(self) -> int | None:
-        return self.selected_trace
+    def store_runtime(self, info: dict) -> None:
+        self.runtime = info
 
-    def delete_trace_by_id(self, trace_id: int):
-        for trace in self.traces:
-            if trace.id == trace_id:
-                self.traces.remove(trace)
-                return
+    def get_runtime(self) -> dict | None:
+        return self.runtime
+
+
+def store_trace(
+    raw_trace: dict[str, Any],
+    name: str,
+    repo: TraceRepository,
+    request: RecordedRequest | None = None,
+) -> int | None:
+    return repo.add_trace(NewTrace(raw_trace=raw_trace, name=name, request=request))

@@ -69,7 +69,7 @@ def fastapi_client(fastapi_app):
 @pytest.fixture
 def project_db(tmp_path, monkeypatch):
     """An isolated project whose trace database holds two traces of GET /users."""
-    from profyle.domain.trace import RecordedRequest, TraceCreate
+    from profyle.domain.trace import NewTrace, RecordedRequest
     from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
     from tests.unit.application.analysis.test_digest import make_trace
 
@@ -83,7 +83,5 @@ def project_db(tmp_path, monkeypatch):
     repo = SQLiteTraceRepository()
     request = RecordedRequest(method="GET", path="/users", base_url="http://127.0.0.1:9")
     for duration in (1.0, 5.0):
-        repo.store_trace(
-            TraceCreate(raw_trace=make_trace(duration), name="GET /users", request=request)
-        )
+        repo.add_trace(NewTrace(raw_trace=make_trace(duration), name="GET /users", request=request))
     yield repo
