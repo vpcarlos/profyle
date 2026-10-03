@@ -60,21 +60,21 @@ def start(args: argparse.Namespace) -> None:
 
 
 def analyze(args: argparse.Namespace) -> None:
-    from profyle.application.analysis import toolkit
+    from profyle.application import tools
 
     repo = _repo()
     trace_id = args.trace_id or repo.latest_trace_id()
     if not trace_id:
-        print(toolkit.list_traces(repo))  # explains that there are no traces yet
+        print(tools.list_traces(repo))  # explains that there are no traces yet
         return
     try:
-        print(toolkit.analyze_trace(repo, trace_id))
-    except toolkit.TraceNotFound as error:
+        print(tools.analyze_trace(repo, trace_id))
+    except tools.TraceNotFound as error:
         print(error)
 
 
 def replay(args: argparse.Namespace) -> None:
-    from profyle.application.analysis import toolkit
+    from profyle.application import tools
 
     headers = {}
     for header in args.header or []:
@@ -82,7 +82,7 @@ def replay(args: argparse.Namespace) -> None:
         headers[name.strip()] = value.strip()
     try:
         print(
-            toolkit.replay_trace(
+            tools.replay_trace(
                 _repo(),
                 args.trace_id,
                 times=args.times,
@@ -91,14 +91,14 @@ def replay(args: argparse.Namespace) -> None:
                 allow_unsafe_method=args.allow_unsafe,
             )
         )
-    except toolkit.TraceNotFound as error:
+    except tools.TraceNotFound as error:
         print(error)
 
 
 def doctor(args: argparse.Namespace) -> None:
-    from profyle.application.analysis import toolkit
+    from profyle.application import tools
 
-    print(toolkit.doctor(_repo()))
+    print(tools.doctor(_repo()))
 
 
 def info(args: argparse.Namespace) -> None:

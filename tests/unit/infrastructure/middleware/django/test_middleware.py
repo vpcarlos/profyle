@@ -94,8 +94,8 @@ async def test_should_trace_async_views_under_asgi_on_every_request():
     assert len(repo.traces) == 3
     for trace in repo.traces:
         calls = {
-            row["function"].rsplit(".", 1)[-1]: row["calls"]
-            for row in build_digest(trace.data, top=1000)["top_inclusive"]
+            row.function.rsplit(".", 1)[-1]: row.calls
+            for row in build_digest(trace.data, top=1000).top_inclusive
         }
         assert calls.get("lookup_in_pool") == 3, calls
         assert calls.get("lookup", 0) >= 3, calls

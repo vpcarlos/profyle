@@ -44,10 +44,10 @@ def test_analyze_without_traces(tmp_path, monkeypatch, capsys):
 
 
 def test_replay(project_db, monkeypatch, capsys):
-    from profyle.application.analysis import toolkit
+    from profyle.application import tools
 
     calls = []
-    monkeypatch.setattr(toolkit, "replay_trace", lambda *a, **k: calls.append((a, k)) or "ok")
+    monkeypatch.setattr(tools, "replay_trace", lambda *a, **k: calls.append((a, k)) or "ok")
     out = run_cli(
         monkeypatch,
         capsys,

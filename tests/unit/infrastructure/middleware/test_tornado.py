@@ -55,8 +55,7 @@ async def test_traces_tornado_requests_with_request_and_response():
     assert [t.name for t in repo.traces] == ["GET /items?x=1", "GET /items?x=1", "POST /items"]
     for trace in repo.traces[:2]:
         calls = {
-            row["function"]: row["calls"]
-            for row in build_digest(trace.data, top=1000)["top_inclusive"]
+            row.function: row.calls for row in build_digest(trace.data, top=1000).top_inclusive
         }
         # run_in_executor threads are traced on every request.
         assert calls.get("blocking_lookup") == 3, calls

@@ -3,7 +3,7 @@ import os
 from django.http import HttpResponse, StreamingHttpResponse
 from django.test import RequestFactory
 
-from profyle.application.request_capture import MAX_BODY_BYTES
+from profyle.application.requests.capture import MAX_BODY_BYTES
 from profyle.infrastructure.middleware.django import ProfyleMiddleware
 from tests.unit.repository import InMemoryTraceRepository
 

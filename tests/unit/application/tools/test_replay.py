@@ -4,8 +4,8 @@ from wsgiref.simple_server import WSGIRequestHandler, make_server
 import pytest
 from flask import Flask, request
 
-from profyle.application import replay
-from profyle.application.analysis import toolkit
+from profyle.application import tools
+from profyle.application.requests import sender
 from profyle.domain.trace import RecordedRequest
 from profyle.flask import ProfyleMiddleware
 from tests.unit.repository import InMemoryTraceRepository
@@ -16,23 +16,23 @@ def recorded(method="GET", base_url="http://127.0.0.1:8000", **kwargs):
 
 
 def test_refuses_unsafe_methods_without_permission():
-    with pytest.raises(replay.ReplayRefused, match="side effects"):
-        replay.check_replayable(recorded("POST"), "http://127.0.0.1:8000", False)
+    with pytest.raises(sender.ReplayRefused, match="side effects"):
+        sender.check_replayable(recorded("POST"), "http://127.0.0.1:8000", False)
 
-    replay.check_replayable(recorded("POST"), "http://127.0.0.1:8000", True)
+    sender.check_replayable(recorded("POST"), "http://127.0.0.1:8000", True)
 
 
 def test_refuses_remote_hosts(monkeypatch):
-    with pytest.raises(replay.ReplayRefused, match="only local hosts"):
-        replay.check_replayable(recorded(), "https://api.example.com", False)
+    with pytest.raises(sender.ReplayRefused, match="only local hosts"):
+        sender.check_replayable(recorded(), "https://api.example.com", False)
 
     monkeypatch.setenv("PROFYLE_REPLAY_ALLOW_REMOTE", "true")
-    replay.check_replayable(recorded(), "https://api.example.com", False)
+    sender.check_replayable(recorded(), "https://api.example.com", False)
 
 
 def test_refuses_requests_whose_body_was_not_recorded():
-    with pytest.raises(replay.ReplayRefused, match="64 KB"):
-        replay.check_replayable(recorded(body_truncated=True), "http://127.0.0.1:8000", False)
+    with pytest.raises(sender.ReplayRefused, match="64 KB"):
+        sender.check_replayable(recorded(body_truncated=True), "http://127.0.0.1:8000", False)
 
 
 class QuietHandler(WSGIRequestHandler):
@@ -83,14 +83,14 @@ def test_replay_sends_the_same_request_and_reports_the_new_trace(traced_server):
     assert original.request.status_code == 201
     assert original.request.headers["authorization"] == "[redacted]"
 
-    refused = toolkit.replay_trace(repo, original.id)
+    refused = tools.replay_trace(repo, original.id)
     assert "side effects" in refused
 
-    without_auth = toolkit.replay_trace(repo, original.id, allow_unsafe_method=True)
+    without_auth = tools.replay_trace(repo, original.id, allow_unsafe_method=True)
     assert "Status changed: original 201, now 401" in without_auth
     assert "authorization" in without_auth
 
-    result = toolkit.replay_trace(
+    result = tools.replay_trace(
         repo,
         original.id,
         times=2,
@@ -113,7 +113,7 @@ def test_replay_reports_unreachable_app():
         request=recorded(base_url="http://127.0.0.1:9"),
     )
 
-    result = toolkit.replay_trace(repo, repo.traces[0].id)
+    result = tools.replay_trace(repo, repo.traces[0].id)
 
     assert "Could not reach the app" in result
 
@@ -125,18 +125,18 @@ def test_replay_checks_the_response_body(traced_server):
     urllib.request.urlopen(f"{base_url}/orders").read()
     [original] = repo.traces
     # Flask's middleware cannot see the body: the first replay provides the baseline.
-    first = toolkit.replay_trace(repo, original.id)
+    first = tools.replay_trace(repo, original.id)
     assert "not recorded" in first and "no recorded response body" in first
     baseline = repo.traces[-1]
     assert baseline.request.response is not None
 
-    same = toolkit.replay_trace(repo, baseline.id)
+    same = tools.replay_trace(repo, baseline.id)
     assert "| identical |" in same
 
     app.config["ORDERS"] = [{"id": 1}]  # a "fix" that drops data
-    broken = toolkit.replay_trace(repo, baseline.id)
+    broken = tools.replay_trace(repo, baseline.id)
     assert "| DIFFERENT |" in broken
     assert "must return the same data" in broken
-    assert '"response_body": "DIFFERENT"' in toolkit.compare_traces(
+    assert '"response_body": "DIFFERENT"' in tools.compare_traces(
         repo, baseline.id, repo.traces[-1].id
     )

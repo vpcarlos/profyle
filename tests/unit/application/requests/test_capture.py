@@ -1,4 +1,4 @@
-from profyle.application.request_capture import REDACTED, build_recorded_request, decode_body
+from profyle.application.requests.capture import REDACTED, build_recorded_request, decode_body
 
 
 def build(headers, body=None, **kwargs):

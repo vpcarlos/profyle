@@ -1,4 +1,4 @@
-from profyle.application.analysis import toolkit
+from profyle.application import tools
 from profyle.application.analysis.digest import DIGEST_VERSION, build_digest, headline
 from tests.unit.application.analysis.test_digest import make_trace
 from tests.unit.repository import InMemoryTraceRepository, store_trace
@@ -41,8 +41,8 @@ def test_headline_names_the_main_suspect():
 def test_digest_is_built_once_and_reused():
     repo, trace_id = repo_with_trace()
 
-    first = toolkit.analyze_trace(repo, trace_id)
-    second = toolkit.analyze_trace(repo, trace_id)
+    first = tools.analyze_trace(repo, trace_id)
+    second = tools.analyze_trace(repo, trace_id)
 
     assert first == second
     assert repo.data_loads == 1
@@ -54,22 +54,22 @@ def test_outdated_digest_is_rebuilt():
     repo, trace_id = repo_with_trace()
     repo.digests[trace_id] = {"version": DIGEST_VERSION - 1}
 
-    toolkit.analyze_trace(repo, trace_id)
+    tools.analyze_trace(repo, trace_id)
 
     assert repo.digests[trace_id]["version"] == DIGEST_VERSION
 
 
 def test_precompute_fills_listings():
     repo, trace_id = repo_with_trace()
-    assert "not analyzed yet" in toolkit.list_traces(repo)
+    assert "not analyzed yet" in tools.list_traces(repo)
 
-    assert toolkit.precompute_digests(repo) == 1
-    assert toolkit.precompute_digests(repo) == 0
+    assert tools.precompute_digests(repo) == 1
+    assert tools.precompute_digests(repo) == 0
 
-    listing = toolkit.list_traces(repo)
+    listing = tools.list_traces(repo)
     assert "not analyzed yet" not in listing
     assert repo.traces[0].headline in listing
-    assert f"#{trace_id}: {repo.traces[0].headline}" in toolkit.slowest_endpoints(repo)
+    assert f"#{trace_id}: {repo.traces[0].headline}" in tools.slowest_endpoints(repo)
 
 
 def test_headline_ignores_recursion():

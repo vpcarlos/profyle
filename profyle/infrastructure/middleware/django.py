@@ -7,8 +7,8 @@ from django.core.exceptions import DisallowedHost
 from django.http import HttpRequest
 from django.http.request import RawPostDataException
 
-from profyle.application.request_capture import MAX_BODY_BYTES, build_recorded_request
-from profyle.application.response_fingerprint import MAX_FINGERPRINT_BYTES, fingerprint
+from profyle.application.requests.capture import MAX_BODY_BYTES, build_recorded_request
+from profyle.application.requests.fingerprint import MAX_FINGERPRINT_BYTES, fingerprint
 from profyle.domain.trace import RecordedRequest
 from profyle.infrastructure.middleware.base import MIDDLEWARE, TRACED, Integration, Middleware
 

@@ -7,8 +7,8 @@ import urllib.request
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
-from profyle.application.request_capture import REDACTED, decode_body
-from profyle.application.response_fingerprint import fingerprint
+from profyle.application.requests.capture import REDACTED, decode_body
+from profyle.application.requests.fingerprint import fingerprint
 from profyle.domain.trace import RecordedRequest, ResponseFingerprint
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}

@@ -45,19 +45,27 @@ The integration tests in `tests/integration/` run exactly these apps through
 
 ## Project layout
 
+The code follows the path of a request, from the app being traced to Claude reading
+the result:
+
 | Path | What lives there |
 |---|---|
-| `profyle/config.py` | Settings shared by every integration (environment, code, `[tool.profyle]`) |
+| `profyle/domain/` | `Trace`, `RecordedRequest`, and the `TraceRepository` interface |
+| `profyle/config.py`, `profyle/settings.py` | Settings shared by every integration (environment, code, `[tool.profyle]`) and where traces are stored |
 | `profyle/infrastructure/middleware/` | Generic ASGI and WSGI middlewares (FastAPI and Flask are aliases), Django middleware, Tornado integration, shared `base.py`; `threadpool.py` makes worker threads traceable on Python < 3.12 |
 | `profyle/infrastructure/autoinstrument.py`, `profyle/_run/` | `profyle run`: import hooks that add the middleware when a framework loads |
-| `profyle/infrastructure/console.py` | One line per traced request, built in a separate process |
-| `examples/` | One app per framework with an N+1 query, used by the integration tests |
-| `profyle/application/analysis/` | Trace digest (`digest.py`) and the text tools shared by the CLI and the MCP server (`toolkit.py`) |
-| `profyle/application/` | Request capture, response fingerprints and replay |
-| `profyle/infrastructure/mcp_server.py` | MCP server (`profyle mcp`) |
+| `profyle/application/request_trace.py` | `RequestTrace`: traces one request with VizTracer and stores it |
+| `profyle/application/requests/` | The HTTP side: request capture, response fingerprints, sending a request again |
 | `profyle/infrastructure/sqlite3/` | Trace storage |
+| `profyle/infrastructure/console.py` | One line per traced request, built in a separate process |
+| `profyle/application/analysis/` | From a raw trace to a digest: `call_tree.py`, `digest.py`, `drilldown.py` (one function), `render.py` (Markdown) |
+| `profyle/application/tools/` | The text tools shared by the CLI and the MCP server: traces, replay, doctor |
+| `profyle/infrastructure/mcp_server.py` | MCP server (`profyle mcp`) |
+| `profyle/main.py` | The `profyle` command |
+| `profyle/infrastructure/api/`, `profyle/infrastructure/web/` | The trace viewer (`profyle start`) |
 | `claude-plugin/` | Claude Code plugin: MCP server config and the `fix-slow-endpoint` skill |
-| `tests/unit/` | Test suite |
+| `examples/` | One app per framework with an N+1 query, used by the integration tests |
+| `tests/unit/` | Test suite, mirroring the package |
 
 ## Guidelines
 

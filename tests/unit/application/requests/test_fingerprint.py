@@ -1,4 +1,4 @@
-from profyle.application.response_fingerprint import compare, fingerprint
+from profyle.application.requests.fingerprint import compare, fingerprint
 
 
 def test_json_key_order_does_not_matter():

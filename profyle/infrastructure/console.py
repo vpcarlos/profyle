@@ -77,7 +77,7 @@ def say(message: str) -> None:
 
 
 def _worker() -> None:
-    from profyle.application.analysis import toolkit
+    from profyle.application import tools
     from profyle.infrastructure.sqlite3.get_connection import get_connection
     from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 
@@ -85,7 +85,7 @@ def _worker() -> None:
     for line in sys.stdin:
         trace_id, _, flag = line.strip().partition(" ")
         try:
-            summary = toolkit.summary_line(repo, int(trace_id))
+            summary = tools.summary_line(repo, int(trace_id))
             if flag == "first":
                 summary += " · first request, includes warm-up"
             say(summary)

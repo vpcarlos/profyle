@@ -16,8 +16,8 @@ from typing import Any
 
 from tornado.web import Application, RequestHandler
 
-from profyle.application.request_capture import MAX_BODY_BYTES, build_recorded_request
-from profyle.application.response_fingerprint import MAX_FINGERPRINT_BYTES, fingerprint
+from profyle.application.requests.capture import MAX_BODY_BYTES, build_recorded_request
+from profyle.application.requests.fingerprint import MAX_FINGERPRINT_BYTES, fingerprint
 from profyle.domain.trace import RecordedRequest
 from profyle.domain.trace_repository import TraceRepository
 from profyle.infrastructure.middleware.base import MIDDLEWARE, PROFYLE_RUN, Integration

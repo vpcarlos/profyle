@@ -116,7 +116,7 @@ async def test_concurrent_requests_do_not_corrupt_each_other():
     assert [r.status_code for r in responses] == [200, 200]
     assert [t.name for t in repo.traces] == ["GET /a"]
     calls = {
-        row["function"].rsplit(".", 1)[-1]: row["calls"]
-        for row in build_digest(repo.traces[0].data, top=1000)["top_inclusive"]
+        row.function.rsplit(".", 1)[-1]: row.calls
+        for row in build_digest(repo.traces[0].data, top=1000).top_inclusive
     }
     assert calls.get("work_a") == 2, calls

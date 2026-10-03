@@ -2,7 +2,7 @@
 
 import io
 
-from profyle.application.request_capture import MAX_BODY_BYTES, build_recorded_request
+from profyle.application.requests.capture import MAX_BODY_BYTES, build_recorded_request
 from profyle.domain.trace_repository import TraceRepository
 from profyle.infrastructure.middleware.base import MIDDLEWARE, TRACED, Integration, Middleware
 

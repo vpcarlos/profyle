@@ -12,7 +12,7 @@ import time
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
-from profyle.application.analysis import toolkit
+from profyle.application import tools
 from profyle.infrastructure.sqlite3.get_connection import get_connection
 from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 
@@ -40,7 +40,7 @@ def _repo() -> SQLiteTraceRepository:
 def _safe(func, *args) -> str:
     try:
         return func(_repo(), *args)
-    except toolkit.TraceNotFound as error:
+    except tools.TraceNotFound as error:
         return str(error)
 
 
@@ -49,7 +49,7 @@ def doctor() -> str:
     """Check the Profyle setup: which trace database is read, whether traces and their
     requests are being recorded, and whether the app is running. Says how to fix each
     problem."""
-    return _safe(toolkit.doctor)
+    return _safe(tools.doctor)
 
 
 @server.tool(annotations=READ_ONLY)
@@ -61,39 +61,39 @@ def list_traces(limit: int = 20, name_contains: str = "", min_duration_ms: float
         name_contains: Only traces whose request name (e.g. "GET /users/1") contains this text.
         min_duration_ms: Only traces at least this slow.
     """
-    return _safe(toolkit.list_traces, limit, name_contains or None, min_duration_ms)
+    return _safe(tools.list_traces, limit, name_contains or None, min_duration_ms)
 
 
 @server.tool(annotations=READ_ONLY)
 def slowest_endpoints(limit: int = 15) -> str:
     """Rank endpoints by p95 duration across all recorded traces (count, median, p95, max)."""
-    return _safe(toolkit.slowest_endpoints, limit)
+    return _safe(tools.slowest_endpoints, limit)
 
 
 @server.tool(annotations=READ_ONLY)
 def analyze_trace(trace_id: int) -> str:
     """Bottleneck digest of one trace: critical path, top self time, the user's own code
     by inclusive time, I/O wait and repeated calls from one caller (N+1 candidates)."""
-    return _safe(toolkit.analyze_trace, trace_id)
+    return _safe(tools.analyze_trace, trace_id)
 
 
 @server.tool(annotations=READ_ONLY)
 def get_call_details(trace_id: int, function: str) -> str:
     """Callers, callees and the slowest invocations (with arguments and return values)
     of a function in a trace. `function` can be a bare or qualified name."""
-    return _safe(toolkit.call_details, trace_id, function)
+    return _safe(tools.call_details, trace_id, function)
 
 
 @server.tool(annotations=READ_ONLY)
 def get_function_source(trace_id: int, function: str) -> str:
     """Source code of a function exactly as it was when the trace was recorded."""
-    return _safe(toolkit.function_source, trace_id, function)
+    return _safe(tools.function_source, trace_id, function)
 
 
 @server.tool(annotations=READ_ONLY)
 def compare_traces(before_id: int, after_id: int) -> str:
     """Compare two traces (e.g. before and after a fix): total and per-function deltas."""
-    return _safe(toolkit.compare_traces, before_id, after_id)
+    return _safe(tools.compare_traces, before_id, after_id)
 
 
 @server.tool(
@@ -124,7 +124,7 @@ def replay_request(
             user explicitly agreed, since the request may modify data.
     """
     return _safe(
-        toolkit.replay_trace, trace_id, times, base_url or None, headers, allow_unsafe_method
+        tools.replay_trace, trace_id, times, base_url or None, headers, allow_unsafe_method
     )
 
 
@@ -134,7 +134,7 @@ def _precompute_digests_forever(interval: float = 5.0) -> None:
     repo = _repo()
     while True:
         try:
-            toolkit.precompute_digests(repo, limit=20)
+            tools.precompute_digests(repo, limit=20)
         except Exception:  # never let a bad trace kill the server
             pass
         time.sleep(interval)

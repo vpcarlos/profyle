@@ -3,8 +3,8 @@
 import asyncio
 import io
 
-from profyle.application.request_capture import MAX_BODY_BYTES
-from profyle.application.response_fingerprint import MAX_FINGERPRINT_BYTES
+from profyle.application.requests.capture import MAX_BODY_BYTES
+from profyle.application.requests.fingerprint import MAX_FINGERPRINT_BYTES
 from profyle.asgi import ProfyleMiddleware as ASGIMiddleware
 from profyle.wsgi import ProfyleMiddleware as WSGIMiddleware
 from tests.unit.repository import InMemoryTraceRepository

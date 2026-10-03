@@ -1,12 +1,7 @@
-from profyle.application.analysis.digest import (
-    build_call_trees,
-    build_digest,
-    classify_origin,
-    compare_digests,
-    get_call_details,
-    get_function_source,
-    render_digest,
-)
+from profyle.application.analysis.call_tree import build_call_trees, origin_of, readable
+from profyle.application.analysis.digest import build_digest, compare_digests, headline
+from profyle.application.analysis.drilldown import get_call_details, get_function_source
+from profyle.application.analysis.render import render_digest
 
 SOURCE = """import time
 
@@ -61,34 +56,30 @@ def test_call_tree_nests_children_by_time():
 def test_digest_reports_totals_hot_path_and_repeated_calls():
     digest = build_digest(make_trace())
 
-    assert digest["total_ms"] == 1.0
-    assert digest["hot_path"][0][0]["function"] == "handler"
-    assert digest["hot_path"][0][1]["function"] == "time.sleep"
-    assert digest["io_wait_self_ms"] == 0.5
-    [repeated] = digest["repeated_calls"]
-    assert (repeated["parent"], repeated["callee"], repeated["calls"]) == (
-        "handler",
-        "get_user",
-        12,
-    )
-    assert repeated["sample_args"] == ["i=0", "i=1", "i=2"]
-    assert [row["function"] for row in digest["top_user_code"]] == ["handler", "get_user"]
+    assert digest.total_ms == 1.0
+    assert digest.hot_path[0][0].function == "handler"
+    assert digest.hot_path[0][1].function == "time.sleep"
+    assert digest.io_wait_self_ms == 0.5
+    [repeated] = digest.repeated_calls
+    assert (repeated.parent, repeated.callee, repeated.calls) == ("handler", "get_user", 12)
+    assert repeated.sample_args == ["i=0", "i=1", "i=2"]
+    assert [row.function for row in digest.top_user_code] == ["handler", "get_user"]
 
 
 def test_recursive_calls_count_inclusive_time_once():
     trace = {"traceEvents": [event("f (/app/a.py:1)", 0, 100), event("f (/app/a.py:1)", 10, 50)]}
 
-    [row] = build_digest(trace)["top_inclusive"]
+    [row] = build_digest(trace).top_inclusive
 
-    assert row["calls"] == 2
-    assert row["inclusive_ms"] == 0.1
+    assert row.calls == 2
+    assert row.inclusive_ms == 0.1
 
 
-def test_classify_origin():
-    assert classify_origin("f (/app/views.py:1)") == "user"
-    assert classify_origin("f (/venv/lib/python3.11/site-packages/x.py:1)") == "third_party"
-    assert classify_origin("f (/usr/lib/python3.11/json/decoder.py:1)") == "stdlib"
-    assert classify_origin("builtins.len") == "builtin"
+def test_origin_of():
+    assert origin_of("f (/app/views.py:1)") == "user"
+    assert origin_of("f (/venv/lib/python3.11/site-packages/x.py:1)") == "third_party"
+    assert origin_of("f (/usr/lib/python3.11/json/decoder.py:1)") == "stdlib"
+    assert origin_of("builtins.len") == "builtin"
 
 
 def test_render_digest_is_compact_markdown():
@@ -132,8 +123,8 @@ def test_compare_digests_reports_improvement():
 def test_empty_trace():
     digest = build_digest({"traceEvents": []})
 
-    assert digest["total_ms"] == 0
-    assert digest["hot_path"] == []
+    assert digest.total_ms == 0
+    assert digest.hot_path == []
 
 
 LIB = "/venv/lib/python3.11/site-packages/framework/{}.py"
@@ -155,15 +146,11 @@ def test_render_collapses_library_frames_and_handles_missing_sections():
 
 
 def test_readable_names_for_bare_comprehension_frames():
-    from profyle.application.analysis.digest import _readable
-
-    assert _readable("<listcomp>", "/app/views.py:12") == "list comprehension at views.py:12"
-    assert _readable("<genexpr>") == "generator expression"
+    assert readable("<listcomp>", "/app/views.py:12") == "list comprehension at views.py:12"
+    assert readable("<genexpr>") == "generator expression"
 
 
 def test_headline_of_an_empty_trace():
-    from profyle.application.analysis.digest import headline
-
     assert headline(build_digest({"traceEvents": []})) == "empty trace"
 
 
@@ -180,6 +167,10 @@ def test_function_source_variants():
 
     # Long functions are truncated.
     assert get_function_source(trace, "handler", max_lines=2).endswith("# … truncated")
+
+    # A def line past the end of the file (the file changed after it was loaded).
+    functions[HANDLER] = ["/app/views.py", 99]
+    assert get_function_source(trace, HANDLER) == "# /app/views.py:99"
 
     # Source not captured for that file.
     functions["ghost (/app/ghost.py:1)"] = ["/app/ghost.py", 1]

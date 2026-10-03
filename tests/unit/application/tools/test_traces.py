@@ -1,6 +1,6 @@
 import pytest
 
-from profyle.application.analysis import toolkit
+from profyle.application import tools
 from tests.unit.application.analysis.test_digest import make_trace
 from tests.unit.repository import InMemoryTraceRepository, store_trace
 
@@ -14,20 +14,20 @@ def repo():
 
 
 def test_list_and_rank_endpoints(repo):
-    assert "GET /users?page=1" in toolkit.list_traces(repo)
-    ranking = toolkit.slowest_endpoints(repo)
+    assert "GET /users?page=1" in tools.list_traces(repo)
+    ranking = tools.slowest_endpoints(repo)
     assert "| GET /users | 2 |" in ranking
 
 
 def test_analyze_and_drill_down(repo):
     trace_id = repo.traces[0].id
 
-    assert "handler → get_user ×12" in toolkit.analyze_trace(repo, trace_id)
-    assert '"calls": 12' in toolkit.call_details(repo, trace_id, "get_user")
-    assert "def handler" in toolkit.function_source(repo, trace_id, "handler")
-    assert "delta_total_ms" in toolkit.compare_traces(repo, trace_id, repo.traces[1].id)
+    assert "handler → get_user ×12" in tools.analyze_trace(repo, trace_id)
+    assert '"calls": 12' in tools.call_details(repo, trace_id, "get_user")
+    assert "def handler" in tools.function_source(repo, trace_id, "handler")
+    assert "delta_total_ms" in tools.compare_traces(repo, trace_id, repo.traces[1].id)
 
 
 def test_unknown_trace(repo):
-    with pytest.raises(toolkit.TraceNotFound):
-        toolkit.analyze_trace(repo, 123)
+    with pytest.raises(tools.TraceNotFound):
+        tools.analyze_trace(repo, 123)

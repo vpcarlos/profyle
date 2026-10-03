@@ -85,7 +85,7 @@ def test_should_trace_sync_endpoints_on_every_request(fastapi_app):
     # The worker thread is reused after the first request; it must still be traced.
     for trace in trace_repo.traces:
         digest = build_digest(trace.data, top=1000)
-        functions = {row["function"] for row in digest["top_inclusive"]}
+        functions = {row.function for row in digest.top_inclusive}
         assert any(name.endswith("slow_lookup") for name in functions), trace.name
 
 
@@ -121,7 +121,7 @@ def test_should_trace_every_sync_dependency_in_a_request(fastapi_app):
 
     for trace in trace_repo.traces:
         functions = {
-            row["function"].rsplit(".", 1)[-1]
-            for row in build_digest(trace.data, top=1000)["top_inclusive"]
+            row.function.rsplit(".", 1)[-1]
+            for row in build_digest(trace.data, top=1000).top_inclusive
         }
         assert {"load_user", "load_settings", "endpoint"} <= functions, trace.name

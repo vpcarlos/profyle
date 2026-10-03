@@ -20,9 +20,9 @@ def client():
 
 
 def test_list_shows_traces_and_their_main_finding(project_db):
-    from profyle.application.analysis import toolkit
+    from profyle.application import tools
 
-    toolkit.precompute_digests(project_db)
+    tools.precompute_digests(project_db)
     with client() as c:
         page = c.get("/traces")
         assert c.get("/", follow_redirects=False).headers["location"] == "/traces"

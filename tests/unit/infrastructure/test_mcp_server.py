@@ -66,7 +66,7 @@ def test_digest_worker_survives_errors(project_db, monkeypatch):
         if len(calls) >= 2:
             raise Stop
 
-    monkeypatch.setattr(mcp_server.toolkit, "precompute_digests", precompute)
+    monkeypatch.setattr(mcp_server.tools, "precompute_digests", precompute)
     monkeypatch.setattr(mcp_server.time, "sleep", sleep)
 
     with pytest.raises(Stop):
