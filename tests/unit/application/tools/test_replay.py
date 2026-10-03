@@ -26,8 +26,7 @@ def test_refuses_remote_hosts(monkeypatch):
     with pytest.raises(sender.ReplayRefused, match="only local hosts"):
         sender.check_replayable(recorded(), "https://api.example.com", False)
 
-    monkeypatch.setenv("PROFYLE_REPLAY_ALLOW_REMOTE", "true")
-    sender.check_replayable(recorded(), "https://api.example.com", False)
+    sender.check_replayable(recorded(), "https://api.example.com", False, allow_remote=True)
 
 
 def test_refuses_requests_whose_body_was_not_recorded():

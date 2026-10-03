@@ -39,6 +39,11 @@ class ProfyleConfig:
     min_duration: float = 0
     # Print a one-line summary of each traced request.
     console: bool = True
+    # Store auth headers, cookies and API keys with the recorded request (redacted by
+    # default), so replays can authenticate without asking for credentials.
+    capture_secrets: bool = False
+    # Let replays send requests to non-local hosts (only local hosts by default).
+    replay_allow_remote: bool = False
     sources: dict[str, str] = field(default_factory=dict, compare=False, repr=False)
 
     def describe(self) -> list[str]:
@@ -73,6 +78,8 @@ ENV_NAMES = {
     "max_stack_depth": "PROFYLE_MAX_STACK_DEPTH",
     "min_duration": "PROFYLE_MIN_DURATION",
     "console": "PROFYLE_CONSOLE",
+    "capture_secrets": "PROFYLE_CAPTURE_SECRETS",
+    "replay_allow_remote": "PROFYLE_REPLAY_ALLOW_REMOTE",
 }
 
 

@@ -70,6 +70,7 @@ class Integration:
             on_stored=self._console_callback(),
             on_busy=lambda: self._say_busy(name),
             store_in_background=STORE_IN_BACKGROUND,
+            capture_secrets=self.config.capture_secrets,
         )
 
     def _say_busy(self, name: str) -> None:

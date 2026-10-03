@@ -1,4 +1,9 @@
-from profyle.application.requests.capture import REDACTED, build_recorded_request, decode_body
+from profyle.application.requests.capture import (
+    REDACTED,
+    build_recorded_request,
+    decode_body,
+    redact,
+)
 
 
 def build(headers, body=None, **kwargs):
@@ -14,16 +19,18 @@ def build(headers, body=None, **kwargs):
 
 
 def test_redacts_credentials_and_drops_hop_by_hop_headers():
-    request = build(
-        [
-            ("Authorization", "Bearer secret"),
-            ("Cookie", "session=abc"),
-            ("Content-Type", "application/json"),
-            ("Host", "localhost:8000"),
-            ("Content-Length", "2"),
-        ],
-        body=b"{}",
-        status_code=201,
+    request = redact(
+        build(
+            [
+                ("Authorization", "Bearer secret"),
+                ("Cookie", "session=abc"),
+                ("Content-Type", "application/json"),
+                ("Host", "localhost:8000"),
+                ("Content-Length", "2"),
+            ],
+            body=b"{}",
+            status_code=201,
+        )
     )
 
     assert request.method == "POST"
@@ -37,12 +44,11 @@ def test_redacts_credentials_and_drops_hop_by_hop_headers():
     assert request.status_code == 201
 
 
-def test_keeps_credentials_when_opted_in(monkeypatch):
-    monkeypatch.setenv("PROFYLE_CAPTURE_SECRETS", "true")
-
+def test_credentials_are_kept_until_redacted():
     request = build([("Authorization", "Bearer secret")])
 
     assert request.headers["authorization"] == "Bearer secret"
+    assert redact(request).headers["authorization"] == REDACTED
 
 
 def test_binary_body_round_trips_as_base64():

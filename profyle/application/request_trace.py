@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from viztracer import VizTracer
 from viztracer.report_builder import ReportBuilder
 
+from profyle.application.requests.capture import redact
 from profyle.domain.trace import NewTrace, RecordedRequest
 from profyle.domain.trace_repository import TraceRepository
 
@@ -61,6 +62,8 @@ class RequestTrace:
     on_stored: Callable[[int], None] | None = None
     # Called when the request is not traced because another one is being traced.
     on_busy: Callable[[], None] | None = None
+    # Keep credentials in the recorded request instead of redacting them.
+    capture_secrets: bool = False
     # Store the trace in a background thread instead of before __exit__ returns.
     store_in_background: bool = False
     tracer: VizTracer | None = None
@@ -109,6 +112,8 @@ class RequestTrace:
             _tracing = False
         try:
             request = self.request() if callable(self.request) else self.request
+            if request is not None and not self.capture_secrets:
+                request = redact(request)
         except Exception:
             _stored()
             raise

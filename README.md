@@ -214,6 +214,8 @@ in use and where each one comes from.
 | `max_stack_depth` | `PROFYLE_MAX_STACK_DEPTH` | `-1` (unlimited) | Maximum call stack depth to record |
 | `min_duration` | `PROFYLE_MIN_DURATION` | `0` | Drop function calls shorter than this, in **microseconds** |
 | `console` | `PROFYLE_CONSOLE` | `true` | Print one line per traced request |
+| `capture_secrets` | `PROFYLE_CAPTURE_SECRETS` | `false` | Store auth headers and cookies with the request instead of `[redacted]` (see [Replay safety](#replay-safety)) |
+| `replay_allow_remote` | `PROFYLE_REPLAY_ALLOW_REMOTE` | `false` | Allow replaying requests to non-local hosts |
 
 ```toml
 # pyproject.toml
@@ -222,9 +224,8 @@ pattern = "/api/*"
 max-stack-depth = 30
 ```
 
-Other environment variables: `PROFYLE_DB` (trace database, see
-[Trace database](#trace-database)), `PROFYLE_CAPTURE_SECRETS` and
-`PROFYLE_REPLAY_ALLOW_REMOTE` (see [Replay safety](#replay-safety)).
+`PROFYLE_DB` chooses the trace database (see [Trace database](#trace-database)); it is
+an environment variable only, since it decides where everything else is read from.
 
 ## Browse traces
 `profyle start` opens a web UI listing your traces with their main finding; open one to
@@ -286,9 +287,9 @@ records it.
 ### Replay safety
 - Profyle stores the request behind each trace (method, path, headers, body up to 64 KB,
   response status). `Authorization`, `Cookie`, API key and CSRF headers are stored as
-  `[redacted]` unless `PROFYLE_CAPTURE_SECRETS=true`; pass credentials when replaying
+  `[redacted]` unless `capture_secrets` is on; pass credentials when replaying
   instead (`-H` in the CLI, `headers` in the MCP tool).
-- Only local hosts are replayed unless `PROFYLE_REPLAY_ALLOW_REMOTE=true`.
+- Only local hosts are replayed unless `replay_allow_remote` is on.
 - `POST`/`PUT`/`PATCH`/`DELETE` are only replayed with explicit permission
   (`--allow-unsafe` / `allow_unsafe_method`); the skill asks you first.
 

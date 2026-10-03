@@ -1,6 +1,5 @@
 """Send a recorded request again so a fix can be measured on a fresh trace."""
 
-import os
 import time
 import urllib.error
 import urllib.request
@@ -32,15 +31,17 @@ def is_local(url: str) -> bool:
     return host in LOCAL_HOSTS or host.endswith(".localhost")
 
 
-def allow_remote() -> bool:
-    return os.getenv("PROFYLE_REPLAY_ALLOW_REMOTE", "").lower() == "true"
-
-
-def check_replayable(request: RecordedRequest, base_url: str, allow_unsafe_method: bool) -> None:
-    if not is_local(base_url) and not allow_remote():
+def check_replayable(
+    request: RecordedRequest,
+    base_url: str,
+    allow_unsafe_method: bool,
+    allow_remote: bool = False,
+) -> None:
+    if not is_local(base_url) and not allow_remote:
         raise ReplayRefused(
-            f"Refusing to replay against {base_url}: only local hosts are allowed "
-            "(set PROFYLE_REPLAY_ALLOW_REMOTE=true to override)."
+            f"Refusing to replay against {base_url}: only local hosts are allowed (set "
+            "PROFYLE_REPLAY_ALLOW_REMOTE=true, or replay_allow_remote = true in "
+            "[tool.profyle], to override)."
         )
     if request.method not in SAFE_METHODS and not allow_unsafe_method:
         raise ReplayRefused(

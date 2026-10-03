@@ -9,6 +9,7 @@ from profyle.application.requests import sender
 from profyle.application.requests.fingerprint import VERDICT_TEXT
 from profyle.application.requests.fingerprint import compare as compare_responses
 from profyle.application.tools.common import load_trace
+from profyle.config import load_config
 from profyle.domain.trace import Trace
 from profyle.domain.trace_repository import TraceRepository
 from profyle.settings import settings
@@ -40,7 +41,9 @@ def replay_trace(
         )
     target = base_url or request.base_url
     try:
-        sender.check_replayable(request, target, allow_unsafe_method)
+        sender.check_replayable(
+            request, target, allow_unsafe_method, allow_remote=load_config().replay_allow_remote
+        )
     except sender.ReplayRefused as error:
         return str(error)
 

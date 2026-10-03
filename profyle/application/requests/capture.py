@@ -1,11 +1,11 @@
 """Build the replayable description of an HTTP request (see `profyle replay`).
 
-Credentials are redacted unless PROFYLE_CAPTURE_SECRETS=true: traces live in a local
-SQLite file and their digests are read by AI assistants.
+Credentials are redacted before a trace is stored (see `redact`) unless the
+`capture_secrets` setting is on: traces live in a local SQLite file and their digests
+are read by AI assistants.
 """
 
 import base64
-import os
 from collections.abc import Iterable
 
 from profyle.domain.trace import RecordedRequest
@@ -35,10 +35,6 @@ DROPPED_HEADERS = {
 }
 
 
-def capture_secrets() -> bool:
-    return os.getenv("PROFYLE_CAPTURE_SECRETS", "").lower() == "true"
-
-
 def build_recorded_request(
     method: str,
     path: str,
@@ -49,15 +45,9 @@ def build_recorded_request(
     body_truncated: bool = False,
     status_code: int | None = None,
 ) -> RecordedRequest:
-    keep_secrets = capture_secrets()
-    clean_headers: dict[str, str] = {}
-    for name, value in headers:
-        lowered = name.lower()
-        if lowered in DROPPED_HEADERS:
-            continue
-        if lowered in SENSITIVE_HEADERS and not keep_secrets:
-            value = REDACTED
-        clean_headers[lowered] = value
+    clean_headers = {
+        name.lower(): value for name, value in headers if name.lower() not in DROPPED_HEADERS
+    }
 
     body_text, encoding = None, None
     if body and not body_truncated:
@@ -76,6 +66,15 @@ def build_recorded_request(
         body_truncated=body_truncated,
         status_code=status_code,
     )
+
+
+def redact(request: RecordedRequest) -> RecordedRequest:
+    """The request with its credentials (auth headers, cookies, API keys) hidden."""
+    headers = {
+        name: REDACTED if name in SENSITIVE_HEADERS else value
+        for name, value in request.headers.items()
+    }
+    return request.model_copy(update={"headers": headers})
 
 
 def decode_body(request: RecordedRequest) -> bytes | None:

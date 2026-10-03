@@ -1,12 +1,12 @@
 import pytest
 
-from profyle.config import load_config
+from profyle.config import ENV_NAMES, load_config
 
 
 @pytest.fixture(autouse=True)
 def project(tmp_path, monkeypatch):
-    for name in ("ENABLED", "PATTERN", "MAX_STACK_DEPTH", "MIN_DURATION", "CONSOLE"):
-        monkeypatch.delenv(f"PROFYLE_{name}", raising=False)
+    for env in ENV_NAMES.values():
+        monkeypatch.delenv(env, raising=False)
     monkeypatch.setenv("PROFYLE_PROJECT_DIR", str(tmp_path))
     return tmp_path
 
@@ -67,3 +67,41 @@ def test_boolean_values(monkeypatch):
     monkeypatch.setenv("PROFYLE_CONSOLE", "maybe")
     with pytest.raises(ValueError, match="console='maybe'"):
         load_config()
+
+
+def test_credentials_are_redacted_unless_capture_secrets_is_on(project, monkeypatch):
+    from flask import Flask
+
+    from profyle.wsgi import ProfyleMiddleware
+    from tests.unit.repository import InMemoryTraceRepository
+
+    app = Flask("secrets")
+    app.get("/me")(lambda: "ok")
+    repo = InMemoryTraceRepository()
+    app.wsgi_app = ProfyleMiddleware(app.wsgi_app, trace_repo=repo, console=False)
+    app.test_client().get("/me", headers={"Authorization": "Bearer secret"})
+
+    (project / "pyproject.toml").write_text("[tool.profyle]\ncapture-secrets = true\n")
+    app.wsgi_app = ProfyleMiddleware(app.wsgi_app.app, trace_repo=repo, console=False)
+    app.test_client().get("/me", headers={"Authorization": "Bearer secret"})
+
+    redacted, kept = (t.request.headers["authorization"] for t in repo.traces)
+    assert (redacted, kept) == ("[redacted]", "Bearer secret")
+
+
+def test_replays_to_remote_hosts_only_when_allowed(project, monkeypatch):
+    from profyle.application import tools
+    from profyle.domain.trace import RecordedRequest
+    from tests.unit.repository import InMemoryTraceRepository, store_trace
+
+    repo = InMemoryTraceRepository()
+    request = RecordedRequest(method="GET", path="/", base_url="https://api.example.invalid")
+    store_trace(raw_trace={"traceEvents": []}, name="GET /", repo=repo, request=request)
+
+    assert "only local hosts are allowed" in tools.replay_trace(repo, 1)
+    assert "Replay: replay_allow_remote = False (default)." in tools.doctor(repo)
+
+    monkeypatch.setenv("PROFYLE_REPLAY_ALLOW_REMOTE", "true")
+    result = tools.replay_trace(repo, 1, wait_seconds=0)
+    assert "Could not reach the app" in result
+    assert "replay_allow_remote = True (environment)" in tools.doctor(repo)

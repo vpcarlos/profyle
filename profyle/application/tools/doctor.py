@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from profyle.application.requests import sender
+from profyle.config import load_config
 from profyle.domain.trace import Trace
 from profyle.domain.trace_repository import TraceRepository
 from profyle.settings import settings
@@ -22,6 +23,7 @@ def doctor(repo: TraceRepository) -> str:
         *_old_database_checks(),
         *_runtime_checks(repo.get_runtime()),
         *_replay_checks(traces),
+        _replay_settings(),
     ]
     lines = [f"{'✓' if ok else '✗' if ok is False else '•'} {text}" for ok, text in checks]
     ready = all(ok is not False for ok, _ in checks)
@@ -64,6 +66,13 @@ def _old_database_checks() -> list[Check]:
             "running an older Profyle. Upgrade it in the app's environment and restart.",
         )
     ]
+
+
+def _replay_settings() -> Check:
+    """Replay settings are read here, by the tools, not by the app."""
+    config = load_config()
+    described = {line.split(" = ")[0]: line for line in config.describe()}
+    return None, f"Replay: {described['replay_allow_remote']}."
 
 
 def _replay_checks(traces: list[Trace]) -> list[Check]:
