@@ -1,5 +1,6 @@
 import asyncio
 import threading
+import time
 
 import pytest
 
@@ -136,3 +137,66 @@ def test_a_failing_request_description_frees_the_tracer():
     with RequestTrace(name="next", repo=repo):
         pass
     assert [t.name for t in repo.traces] == ["next"]
+
+
+class BusyRepr:
+    """An argument whose __repr__ runs Python code long enough for threads to switch."""
+
+    def __init__(self, started: threading.Event):
+        self.started = started
+
+    def __repr__(self):
+        self.started.set()
+        deadline = time.perf_counter() + 0.002
+        while time.perf_counter() < deadline:
+            pass
+        return "BusyRepr()"
+
+
+def test_stopping_while_another_thread_records_an_argument():
+    # VizTracer clears every thread's call stack when it stops; a thread still recording
+    # an argument then crashed the process (segmentation fault). See _stop_safely.
+    from profyle.infrastructure.middleware import threadpool
+
+    def lookup(*values):
+        return len(values)
+
+    repo = InMemoryTraceRepository()
+    recording = threading.Event()
+    with RequestTrace(name="race", repo=repo) as trace:
+        call = threadpool._traced_sync(lookup, trace.tracer)
+        values = [BusyRepr(recording) for _ in range(3)]
+        worker = threading.Thread(target=call, args=values)
+        worker.start()
+        recording.wait(5)
+    worker.join()
+
+    assert [t.name for t in repo.traces] == ["race"]
+
+
+def test_a_request_arriving_while_another_trace_suspends_waits_for_it(monkeypatch):
+    from profyle.application import request_trace
+
+    stopping = threading.Event()
+    real_stop = request_trace._stop_safely
+
+    def slow_stop(tracer):
+        stopping.set()
+        time.sleep(0.2)  # the window in which the next request arrives
+        real_stop(tracer)
+
+    monkeypatch.setattr(request_trace, "_stop_safely", slow_stop)
+    repo = InMemoryTraceRepository()
+    streaming = RequestTrace(name="streaming", repo=repo)
+    streaming.start()
+    suspending = threading.Thread(target=streaming.suspend)
+    suspending.start()
+    stopping.wait(5)
+
+    with RequestTrace(name="next", repo=repo, wait_for_storing=5):
+        pass
+    suspending.join()
+
+    # "next" waited for "streaming" to be suspended, then finished it (its body was
+    # never read) instead of being served untraced.
+    assert [t.name for t in repo.traces] == ["streaming", "next"]

@@ -25,7 +25,9 @@ import atexit
 import fnmatch
 import functools
 import re
+import sys
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -39,7 +41,13 @@ from profyle.domain.trace_repository import TraceRepository
 STORE_THREAD = "profyle-store"
 
 # What a RequestTrace is doing.
-NOT_TRACED, RUNNING, SUSPENDED, FINISHED = "not traced", "running", "suspended", "finished"
+NOT_TRACED, RUNNING, STOPPING, SUSPENDED, FINISHED = (
+    "not traced",
+    "running",
+    "stopping",  # being suspended: the tracer stops in a moment
+    "suspended",
+    "finished",
+)
 
 _state = threading.Condition()
 # The trace that owns the tracer (running or suspended).
@@ -48,6 +56,27 @@ _owner: "RequestTrace | None" = None
 _storing = 0
 # The running tracer, for code that hooks it into other threads (see threadpool).
 _active_tracer: VizTracer | None = None
+
+
+# Seconds a thread gets to finish the event it is recording before the tracer stops.
+STOP_GRACE = 0.005
+
+
+def _stop_safely(tracer: VizTracer) -> None:
+    """Stop the tracer, first letting other threads finish the event they are recording.
+
+    VizTracer 1.1.1 races when it stops: it clears the call stacks of every thread it
+    traced, while another thread may be in the middle of recording an argument (a
+    __repr__ written in Python lets threads switch), and that thread then crashes the
+    process. Python 3.12+ traces every thread, so stop delivering events first and give
+    threads a moment to finish; earlier versions only trace the threads Profyle hooks.
+    """
+    if sys.version_info >= (3, 12):  # pragma: no cover - coverage is measured on 3.11
+        for tool in range(6):
+            if sys.monitoring.get_tool(tool) == "viztracer":
+                sys.monitoring.set_events(tool, 0)
+        time.sleep(STOP_GRACE)
+    tracer.stop()
 
 
 def active_tracer() -> VizTracer | None:
@@ -108,6 +137,8 @@ class RequestTrace:
         if not self.should_trace():
             return
         with _state:
+            # Wait for the previous trace to be stored, or to finish suspending.
+            _state.wait_for(_ready_for_next_trace, self.wait_for_storing)
             # The owner is suspended: nobody is reading its body anymore.
             abandoned = _owner if _owner is not None and _owner.phase == SUSPENDED else None
             if abandoned:
@@ -115,7 +146,6 @@ class RequestTrace:
         if abandoned:
             abandoned._store_after_stop(background=False)
         with _state:
-            _state.wait_for(lambda: _storing == 0, self.wait_for_storing)
             busy = _owner is not None or _storing > 0
             if not busy:
                 self.phase, _owner = RUNNING, self
@@ -131,12 +161,15 @@ class RequestTrace:
     def suspend(self) -> None:
         """Stop the tracer but keep the trace open (and the tracer)."""
         global _active_tracer
-        if self.phase != RUNNING:
-            return
+        with _state:
+            if self.phase != RUNNING:
+                return
+            self.phase = STOPPING
         _active_tracer = None
-        self.tracer.stop()
+        _stop_safely(self.tracer)
         with _state:
             self.phase = SUSPENDED
+            _state.notify_all()
 
     def resume(self) -> bool:
         """Restart a suspended trace; False if it is not suspended (or was finished)."""
@@ -159,7 +192,7 @@ class RequestTrace:
             self._release()
         if was == RUNNING:
             _active_tracer = None
-            self.tracer.stop()
+            _stop_safely(self.tracer)
         self._store_after_stop(background)
 
     def _release(self) -> None:
@@ -192,6 +225,10 @@ class RequestTrace:
                 self.on_stored(trace_id)
         finally:
             _stored()
+
+
+def _ready_for_next_trace() -> bool:
+    return _storing == 0 and (_owner is None or _owner.phase != STOPPING)
 
 
 def _stored() -> None:

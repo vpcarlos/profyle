@@ -53,3 +53,14 @@ def test_worker_prints_one_line_per_trace(project_db, monkeypatch, capsys):
     )
     assert "· #2 ·" in lines[1]
     assert lines[2] == "profyle ▸ trace 999: could not summarize (Trace 999 not found)"
+
+
+def test_messages_are_shown_while_a_request_is_traced(capsys):
+    from profyle.application.request_trace import RequestTrace
+    from tests.unit.repository import InMemoryTraceRepository
+
+    # VizTracer replaces print() while it traces; Profyle's messages must still show.
+    with RequestTrace(name="GET /", repo=InMemoryTraceRepository()):
+        console.say("GET /other not traced")
+
+    assert "GET /other not traced" in capsys.readouterr().err

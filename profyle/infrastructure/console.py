@@ -69,11 +69,15 @@ def display_path(path: str) -> str:
 
 
 def say(message: str) -> None:
-    """Print a Profyle message to the app's console (stderr, like server logs)."""
+    """Print a Profyle message to the app's console (stderr, like server logs).
+
+    Written to the stream directly: while a request is traced, VizTracer replaces print()
+    to record what the app prints, which would swallow the message."""
     try:
-        print(f"{PREFIX} {message}", file=sys.stderr, flush=True)
+        sys.stderr.write(f"{PREFIX} {message}\n")
     except UnicodeEncodeError:
-        print(f"profyle > {message}".encode("ascii", "replace").decode(), file=sys.stderr)
+        sys.stderr.write(f"profyle > {message}\n".encode("ascii", "replace").decode())
+    sys.stderr.flush()
 
 
 def _worker() -> None:

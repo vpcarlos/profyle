@@ -89,11 +89,17 @@ compare_traces  ←  replay the same request  ←  code change
   without the body's work and without a response fingerprint.
 - Django's own middleware (`profyle run`, `profyle.django`) ends the trace when the view
   returns, so a `StreamingHttpResponse` is traced up to the start of the stream.
-- VizTracer (1.1.1) frees a tracer's thread metadata without detaching the threads it
-  traced; when such a thread exits later, VizTracer writes to the freed memory, which
-  can crash the process (a segmentation fault, typically when a worker pool shuts down
-  or at exit). Profyle avoids it by never freeing a tracer: one VizTracer per
-  configuration is reused for every trace. Worth reporting upstream.
+- Two VizTracer (1.1.1) bugs can crash the process with a segmentation fault; both are
+  worth reporting upstream:
+  - freeing a tracer leaves dangling pointers in the threads it traced, which VizTracer
+    writes to when such a thread exits. Profyle never frees a tracer (one per
+    configuration, reused for every trace), which avoids it;
+  - `stop()` clears the call stack of every traced thread without synchronization, while
+    another thread may be inside `log_func_args` running a Python `__repr__`. Profyle
+    stops event delivery first on Python 3.12+ and waits a few milliseconds, which covers
+    short `__repr__` calls but not one that blocks for longer (e.g. a database query
+    inside `__repr__`). Passing VizTracer a `log_func_repr` to track this is not an
+    option: VizTracer then passes NULL to it for unbound locals and crashes.
 - VizTracer keeps at most `tracer_entries` (1M by default) events per trace; older events
   are dropped on very long requests (`viztracer_metadata.overflow`). The digest should
   surface this, and the middleware should expose the setting.

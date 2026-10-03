@@ -77,9 +77,17 @@ All notable changes to this project are documented here. The format follows
 - The duration of a trace missed the time spent in its last call.
 - The trace viewer left a database connection open per request.
 - `get_function_source` crashed when a trace pointed past the end of a file.
-- Occasional segmentation faults (seen when a worker thread pool shut down, or at exit):
-  VizTracer writes to freed memory when a thread exits after the tracer that traced it
-  was freed. Profyle now reuses one tracer instead of creating one per request.
+- Occasional segmentation faults, from two VizTracer 1.1.1 bugs:
+  - a thread that exits after the tracer that traced it was freed writes to freed memory
+    (seen when a worker pool shut down, or at exit). Profyle now reuses one tracer
+    instead of creating one per request;
+  - stopping a tracer clears the call stacks of every thread while another thread may be
+    recording an argument whose `__repr__` runs Python code. On Python 3.12+, where every
+    thread is traced, Profyle now stops event delivery and gives threads a moment to
+    finish before it stops the tracer. A `__repr__` that blocks for longer (for example
+    one that queries a database) can still hit it.
+- Profyle's console messages (such as "not traced") were swallowed while another request
+  was being traced: VizTracer replaces `print()` while it traces.
 - `profyle run uvicorn --factory` reported the app as `str`; it is now
   reported as a plain ASGI app.
 - Concurrent requests corrupted each other's traces (VizTracer: "Overwrite tracer!").
