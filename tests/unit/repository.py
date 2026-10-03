@@ -30,7 +30,7 @@ class InMemoryTraceRepository(TraceRepository):
     def store_trace_selected(self, trace_id: int) -> None:
         self.selected_trace = trace_id
 
-    def store_trace(self, new_trace: TraceCreate) -> None:
+    def store_trace(self, new_trace: TraceCreate) -> int:
         trace = Trace(
             id=len(self.traces) + 1,
             timestamp=str(time.time()),
@@ -40,6 +40,7 @@ class InMemoryTraceRepository(TraceRepository):
             request=new_trace.request,
         )
         self.traces.append(trace)
+        return trace.id
 
     def update_trace_request(self, trace_id: int, request: RecordedRequest) -> None:
         for trace in self.traces:
@@ -48,6 +49,12 @@ class InMemoryTraceRepository(TraceRepository):
 
     def get_all_traces(self) -> list[Trace]:
         return self.traces
+
+    def store_runtime(self, info: dict) -> None:
+        self.runtime = info
+
+    def get_runtime(self) -> dict | None:
+        return getattr(self, "runtime", None)
 
     def get_digest(self, trace_id: int) -> dict | None:
         return self.digests.get(trace_id)

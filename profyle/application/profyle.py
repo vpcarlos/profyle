@@ -30,6 +30,8 @@ class profyle:
     # is resolved after the tracer stops, so recording the exchange (copying headers,
     # fingerprinting the response) does not show up in the trace it describes.
     request: RecordedRequest | Callable[[], RecordedRequest] | None = None
+    # Called with the id of the stored trace (e.g. to print a summary line).
+    on_stored: Callable[[int], None] | None = None
 
     def __enter__(self) -> "profyle":
 
@@ -62,12 +64,14 @@ class profyle:
             self.tracer.parse()
             report_builder = ReportBuilder(self.tracer.data, verbose=0)
             report_builder.prepare_json(file_info=True)
-            store_trace(
+            trace_id = store_trace(
                 raw_trace=report_builder.combined_json,
                 name=self.name,
                 repo=self.repo,
                 request=request,
             )
+            if trace_id is not None and self.on_stored:
+                self.on_stored(trace_id)
 
     def should_trace(self) -> bool:
         if not self.pattern:

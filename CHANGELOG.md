@@ -9,6 +9,16 @@ All notable changes to this project are documented here. The format follows
 ## [0.4.0] - Unreleased
 
 ### Added
+- **`profyle run <command>`**: trace an app without code changes
+  (`profyle run uvicorn main:app --reload`, `flask run`, `manage.py runserver`, ...).
+  Supports FastAPI/Starlette, Flask and Django under any server, and any ASGI app served
+  by uvicorn.
+- **One line per traced request in the console** with its main finding, computed in a
+  separate process so requests do not wait for it (`console` setting).
+- **Generic middlewares** `profyle.asgi` and `profyle.wsgi` for any ASGI/WSGI framework.
+- **Unified configuration** for every integration: environment variables, code, or
+  `[tool.profyle]` in `pyproject.toml`; `profyle doctor` shows each value and its source,
+  plus the app that is writing traces.
 - **Claude Code plugin** (`claude-plugin/`, installable from this repository's
   marketplace) with the `fix-slow-endpoint` skill: diagnose a slow endpoint from its
   traces, fix it, replay the request and verify the result.
@@ -31,9 +41,20 @@ All notable changes to this project are documented here. The format follows
 - Python 3.10 or newer is required. Minimum versions: VizTracer 1.0, FastAPI 0.115,
   pydantic 2, Flask 3.0 (for `profyle[flask]`), MCP 2.0 (for `profyle[mcp]`).
 - The CLI no longer depends on Typer and Rich.
+- `profyle.fastapi` and `profyle.flask` are now aliases of the generic ASGI and WSGI
+  middlewares; middleware settings default to `None` (unset) so the configuration
+  sources above apply.
 - The trace viewer no longer sends permissive CORS headers.
 
 ### Fixed
+- `PROFYLE_ENABLED=false` did not disable the FastAPI and Flask middlewares.
+- The disabled Django middleware returned no response, breaking every request.
+- The Django middleware read `MIN_DURATION` instead of `PROFYLE_MIN_DURATION` (the old
+  name still works, with a deprecation warning) and ignored environment variables.
+- The WSGI (Flask) middleware ignored HTTPS requests.
+- Importing a middleware opened the trace database even when Profyle was disabled.
+- `min_duration` was documented in milliseconds; it is in microseconds and filters
+  function calls, not requests.
 - Sync FastAPI/Starlette endpoints and dependencies, Django async views under ASGI and
   `sync_to_async` code were missing from traces after the first request on Python
   < 3.12, because they run in reused worker threads.

@@ -1,6 +1,6 @@
 ---
 name: fix-slow-endpoint
-description: Diagnose and fix a slow endpoint or request in a Python web app (FastAPI, Flask, Django) using real Profyle/VizTracer traces, then prove the fix by replaying the request and comparing traces. Use when the user says an endpoint, API call, page or request is slow, has high latency, times out, or asks where a bottleneck is.
+description: Diagnose and fix a slow endpoint or request in a Python web app (FastAPI, Flask, Django, any ASGI/WSGI framework) using real Profyle/VizTracer traces, then prove the fix by replaying the request and comparing traces. Use when the user says an endpoint, API call, page or request is slow, has high latency, times out, or asks where a bottleneck is.
 ---
 
 # Fix a slow endpoint with Profyle traces
@@ -14,14 +14,36 @@ The `profyle` MCP server provides: `doctor`, `slowest_endpoints`, `list_traces`,
 
 ## 0. Check the setup
 
-Call `doctor` first. It reports which trace database is read, whether traces and their
-requests are recorded, and whether the app is running. If it lists ✗ items, relay the
-fixes to the user in plain words and wait for them before going on. Typical fixes:
-- `pip install "profyle[mcp]"` and add `ProfyleMiddleware` (`profyle.fastapi`,
-  `profyle.flask`, or `"profyle.django.ProfyleMiddleware"` in `MIDDLEWARE`).
-- Start the app from inside the project, preferably with auto-reload. Traces are stored
-  in `<project>/.profyle/profile.db` automatically, and git ignores that folder.
-- Make the slow request once (browser, curl or the frontend).
+Call `doctor` first. It reports which trace database is read, whether traces exist,
+which app wrote them and how (`profyle run` or middleware), and whether the app is
+running. If everything is ✓, go to step 1.
+
+If there are no traces or the app is not running, get the app running under Profyle
+**without editing the user's code**:
+
+1. Make sure Profyle is installed in the project's environment
+   (`pip install "profyle[mcp]"`, `uv add --dev "profyle[mcp]"`, ...). Ask before
+   installing anything.
+2. Find how the project starts its dev server: README, Makefile, `pyproject.toml`
+   scripts, Procfile, docker-compose, `manage.py`, or an app object such as
+   `main:app`. Prefer the command with auto-reload: `uvicorn main:app --reload`,
+   `flask --app app run --debug`, `python manage.py runserver`.
+3. Propose the command prefixed with `profyle run`, for example
+   `profyle run uvicorn main:app --reload`, and ask the user to confirm it (and the port).
+   `profyle run` adds tracing to FastAPI, Starlette, Flask, Django and any ASGI app
+   served by uvicorn. If the app already uses `ProfyleMiddleware`, run the command as is.
+4. With the user's agreement, start it as a background process so it keeps running.
+   It prints `profyle ▸ tracing requests ...` at start-up, then one line per request with
+   the trace id and its main finding (`profyle ▸ GET /orders 245 ms · #12 · repeated:
+   list_orders → get_customer ×100 (83%)`). Read those lines: they confirm tracing works.
+5. Trigger the slow request: with `curl` if it is a GET that needs no login, otherwise
+   ask the user to do it in the app. Then call `doctor` again.
+
+If the app runs where you cannot start it (a container, a remote machine), explain the
+setup to the user instead: `profyle run <their command>`, or `ProfyleMiddleware` from
+`profyle.asgi` / `profyle.wsgi` (or `"profyle.django.ProfyleMiddleware"` in
+`MIDDLEWARE`), with the traces database shared with this project
+(`<project>/.profyle/profile.db`, or `PROFYLE_DB`).
 
 ## 1. Find the endpoint and its traces
 
@@ -37,9 +59,8 @@ fixes to the user in plain words and wait for them before going on. Typical fixe
   connection setup). Do not diagnose that trace if a later one exists.
 - For a GET request, call `replay_request(trace_id, times=3)` before changing anything.
   This gives warm traces and a median baseline, and confirms that replay works (the app is
-  reachable and credentials are not missing). If the app is not reachable, ask the user
-  to start it, preferably with auto-reload (`uvicorn --reload`, `flask --debug`,
-  `manage.py runserver`).
+  reachable and credentials are not missing). If the app is not reachable, start it as
+  in step 0.
 - **Never replay POST, PUT, PATCH or DELETE without the user's explicit permission.** These
   requests may create or delete data. Ask first; only then pass `allow_unsafe_method=true`.
 - Auth headers and cookies are redacted when recording. If the replay returns 401 or 403,
@@ -91,8 +112,8 @@ the evidence: ms, % of the request, call counts and `file:line`.
 
 ## 5. Verify
 
-- Make sure the app is running the new code. With auto-reload, wait a moment; otherwise
-  ask the user to restart it.
+- Make sure the app is running the new code. With auto-reload, wait a moment; if you
+  started it without auto-reload, restart it; otherwise ask the user to restart it.
 - Call `replay_request(baseline_trace_id, times=3)`. Read two columns before the timings:
   - **status:** a status change means the fix broke something.
   - **body:** `identical` is the goal. `same structure, values differ` is fine when the

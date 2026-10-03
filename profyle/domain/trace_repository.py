@@ -24,7 +24,8 @@ class TraceRepository(ABC):
     def store_trace_selected(self, trace_id: int) -> None: ...
 
     @abstractmethod
-    def store_trace(self, new_trace: TraceCreate) -> None: ...
+    def store_trace(self, new_trace: TraceCreate) -> int | None:
+        """Store a trace and return its id (None if it could not be stored)."""
 
     @abstractmethod
     def update_trace_request(self, trace_id: int, request: RecordedRequest) -> None: ...
@@ -34,6 +35,13 @@ class TraceRepository(ABC):
 
     @abstractmethod
     def get_trace_by_id(self, id: int, include_data: bool = True) -> Trace | None: ...
+
+    @abstractmethod
+    def store_runtime(self, info: dict[str, Any]) -> None:
+        """Record the app process currently writing traces (shown by `profyle doctor`)."""
+
+    @abstractmethod
+    def get_runtime(self) -> dict[str, Any] | None: ...
 
     @abstractmethod
     def get_digest(self, trace_id: int) -> dict[str, Any] | None: ...

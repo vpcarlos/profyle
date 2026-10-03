@@ -37,6 +37,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "jinja2>=3.1.2",
     "pydantic>=2.0",
+    "tomli>=1.1.0; python_version < '3.11'",
     "uvicorn[standard]>=0.39.0",
     "viztracer>=1.0.0",
 ]
@@ -78,6 +79,9 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "integration: starts real servers in subprocesses (deselect with -m 'not integration')",
+]
 
 [tool.ruff]
 line-length = 100

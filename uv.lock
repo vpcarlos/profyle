@@ -789,6 +789,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "jinja2" },
     { name = "pydantic" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "viztracer" },
 ]
@@ -829,6 +830,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.2" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=2.0.0" },
     { name = "pydantic", specifier = ">=2.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=1.1.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.39.0" },
     { name = "viztracer", specifier = ">=1.0.0" },
 ]

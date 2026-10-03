@@ -362,15 +362,18 @@ def doctor(repo: TraceRepository) -> str:
         checks.append((True, f"Database {db_path} ({source}): {len(traces)} traces, newest "
                              f"#{newest.id} {newest.name} at {newest.timestamp} UTC."))
     else:
-        checks.append((False, f"Database {db_path} ({source}) has no traces. Add "
-                              "ProfyleMiddleware to the app, start it from inside this "
-                              "project (or with the same PROFYLE_DB), then make one request."))
+        checks.append((False, f"Database {db_path} ({source}) has no traces. Start the app "
+                              "from this project with `profyle run <command>` (for example "
+                              "`profyle run uvicorn main:app --reload`), or add "
+                              "ProfyleMiddleware, then make one request."))
 
     legacy = _count_traces(settings.get_legacy_db_path())
     if legacy and settings.get_legacy_db_path() != db_path:
         checks.append((False, f"Found {legacy} traces in the old location "
                               f"{settings.get_legacy_db_path()}: the app is probably running an "
                               "older Profyle. Upgrade it in the app's environment and restart."))
+
+    checks += _runtime_checks(repo.get_runtime())
 
     newest_request = next((t for t in reversed(traces) if t.request), None) if traces else None
     if traces and newest_request is None:
@@ -381,13 +384,46 @@ def doctor(repo: TraceRepository) -> str:
         checks.append(_app_reachable(newest_request.request.base_url))
 
     lines = [f"{'✓' if ok else '✗' if ok is False else '•'} {text}" for ok, text in checks]
-    lines.append(
-        "• Make sure the app auto-reloads code changes (uvicorn --reload, flask --debug, "
-        "manage.py runserver); otherwise it must be restarted before verifying a fix."
-    )
     ready = all(ok is not False for ok, _ in checks)
     lines.append("\nReady." if ready else "\nFix the ✗ items above, then run doctor again.")
     return "\n".join(lines)
+
+
+def _runtime_checks(runtime: dict[str, Any] | None) -> list[tuple[bool | None, str]]:
+    """What the app reported about itself when it started writing traces."""
+    if not runtime:
+        return []
+    alive = _process_alive(runtime.get("pid"))
+    state = {True: "running", False: "not running", None: "unknown state"}[alive]
+    how = "`profyle run`" if runtime.get("mode") == "profyle run" else "ProfyleMiddleware"
+    checks: list[tuple[bool | None, str]] = [
+        (
+            True if alive is not False else None,
+            f"App: {runtime.get('framework')} traced via {how} (pid {runtime.get('pid')}, "
+            f"{state}; Profyle {runtime.get('profyle')}, Python {runtime.get('python')}).",
+        ),
+        (None, "Configuration: " + "; ".join(runtime.get("config", []))),
+    ]
+    if runtime.get("mode") != "profyle run":
+        checks.append((None, "Tip: `profyle run <command>` traces the app without code changes."))
+    checks.append((
+        None,
+        "Make sure the app auto-reloads code changes (uvicorn --reload, flask --debug, "
+        "manage.py runserver); otherwise it must be restarted before verifying a fix.",
+    ))
+    return checks
+
+
+def _process_alive(pid: Any) -> bool | None:
+    if not isinstance(pid, int) or os.name == "nt":
+        return None
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 def _count_traces(path: str) -> int:
@@ -412,5 +448,13 @@ def _app_reachable(base_url: str | None) -> tuple[bool | None, str]:
         with socket.create_connection((host, port), timeout=1):
             return True, f"The app is running at {base_url}."
     except OSError:
-        return False, (f"Nothing is listening at {base_url}. Start the app (with auto-reload) "
-                       "so requests can be replayed.")
+        return False, (f"Nothing is listening at {base_url}. Start the app, with auto-reload, "
+                       "e.g. `profyle run uvicorn main:app --reload`, so requests can be "
+                       "replayed.")
+
+
+def summary_line(repo: TraceRepository, trace_id: int) -> str:
+    """One line describing a stored trace, e.g. for the console of the traced app."""
+    trace = _load(repo, trace_id, include_data=False)
+    finding = headline(_digest(repo, trace))
+    return f"{trace.name} {round(trace.duration / 1000, 1)} ms · #{trace.id} · {finding}"

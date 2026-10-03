@@ -28,13 +28,13 @@ fix your code and prove the fix by replaying the request.
 > source code and request data, so do not enable it in production. See
 > [SECURITY.md](SECURITY.md).
 
-## Why do you need Profyle?
-### Bottlenecks
-With Profyle you can easily detect where in your code you have a bottleneck, simply analyze the trace and see what function or operation is taking most of the execution time of the request
-
-### Enhance performance
-Analyze the traces and decide which parts of your code should be improved
-
+## Why Profyle?
+- **Find the bottleneck, not just a flamegraph**: every traced request gets a one-line
+  main finding, such as `repeated: list_orders → get_customer ×100 (83%)`.
+- **No code changes**: `profyle run uvicorn main:app --reload` traces FastAPI,
+  Starlette, Flask, Django and any ASGI app served by uvicorn.
+- **Fixes you can trust**: Claude Code reads the trace, changes your code, replays the
+  same request and checks that it is faster *and* returns the same data.
 
 ## Installation
 
@@ -51,154 +51,155 @@ $ pip install profyle
 Requires Python 3.10+. Extras: `profyle[mcp]` (Claude Code / MCP server),
 `profyle[flask]`, `profyle[django]`.
 
-## Example
+## Quick start with Claude Code
 
-### 1. Implement
-In order to track all your API requests you must implement the <code>ProfyleMiddleware</code>
-#### ProfyleMiddleware
-| Attribute | Required | Default | Description | ENV Variable |
-| --- | --- | --- | --- | --- |
-| `enabled` | No | `True` | Enable or disable Profyle | `PROFYLE_ENABLED` |
-| `pattern` | No | `None` | 0nly trace those paths that match with [pattern](https://en.wikipedia.org/wiki/Glob_(programming))  | `PROFYLE_PATTERN` |
-| `max_stack_depth` | No | `-1` | Limit maximum stack trace depth | `PROFYLE_MAX_STACK_DEPTH` |
-| `min_duration` | No | `0` (milisecons) | Only record traces with a greather duration than the limit. | `PROFYLE_MIN_DURATION` |
-
-
-<details markdown="1" open>
-<summary>FastAPI</summary>
-
-```Python
-from fastapi import FastAPI
-from profyle.fastapi import ProfyleMiddleware
-
-app = FastAPI()
-# Trace all requests
-app.add_middleware(ProfyleMiddleware)
-
-@app.get("/")
-async def root():
-    return {"hello": "world"}
+```console
+$ pip install "profyle[mcp]"                        # in your app's environment
+$ claude plugin marketplace add vpcarlos/profyle
+$ claude plugin install profyle@profyle
 ```
 
-```Python
+Then, in your project, tell Claude Code what feels slow:
+
+> GET /orders is slow, can you fix it?
+
+The `fix-slow-endpoint` skill takes it from there. If the app is not traced yet, Claude
+proposes starting your dev server with `profyle run` (no code changes) and, once you
+agree, makes the request, reads the trace, fixes the code, replays the request and
+reports the measured before/after:
+
+> `GET /orders` now takes about **17 ms** warm instead of **120 ms**. Root cause: N+1
+> query, `list_orders` (`main.py:22`) called `get_customer` once per order (50 calls,
+> 90% of the request) … Status 200 and response body identical before and after.
+
+The plugin starts `profyle` from your `PATH`; if that is not your project's environment,
+set `PROFYLE_COMMAND=/path/to/.venv/bin/profyle`. Without the plugin, register just the
+MCP server from your project directory: `claude mcp add profyle -- profyle mcp`.
+
+## Add tracing to your app
+
+### Without code changes: `profyle run`
+Put `profyle run` in front of the command that starts your dev server:
+
+```console
+$ profyle run uvicorn main:app --reload            # FastAPI, Starlette, any ASGI app
+$ profyle run flask --app app run --debug          # Flask
+$ profyle run python manage.py runserver           # Django (WSGI)
+$ profyle run uvicorn mysite.asgi:application      # Django (ASGI)
+```
+
+Each request prints its main finding in the console:
+
+```console
+profyle ▸ tracing requests of `uvicorn main:app --reload` → .profyle/profile.db. Each request prints a summary line here; …
+profyle ▸ GET /orders 543.3 ms · #1 · repeated: getblock → _tokenize ×44 (64.2%) · first request, includes warm-up
+profyle ▸ GET /orders 123.8 ms · #2 · repeated: list_orders → get_customer ×50 (87.1%)
+```
+
+`profyle run` adds the middleware when your framework loads: FastAPI/Starlette, Flask
+and Django under any server, plus any other ASGI framework (Litestar, Quart, …) served
+by uvicorn. For other combinations, add the middleware yourself.
+
+### With a middleware
+<details markdown="1" open>
+<summary>FastAPI / Starlette</summary>
+
+```python
 from fastapi import FastAPI
 from profyle.fastapi import ProfyleMiddleware
 
 app = FastAPI()
-# Trace all requests that match that start with /users 
-# with a minimum duration of 100ms and a maximum stack depth of 20
-app.add_middleware(
-    ProfyleMiddleware,
-    pattern="/users*",
-    max_stack_depth=20,
-    min_duration=100
-)
-
-@app.get("/users/{user_id}")
-async def get_user(user_id: int):
-    return {"hello": "user"}
+app.add_middleware(ProfyleMiddleware)                      # trace every request
+# app.add_middleware(ProfyleMiddleware, pattern="/users*") # or only some paths
 ```
 </details>
 
 <details markdown="1">
 <summary>Flask</summary>
 
-```Python
+```python
 from flask import Flask
 from profyle.flask import ProfyleMiddleware
 
 app = Flask(__name__)
-
-app.wsgi_app = ProfyleMiddleware(app.wsgi_app, pattern="*/api/products*")
-
-@app.route("/")
-def root():
-    return "<p>Hello, World!</p>"
+app.wsgi_app = ProfyleMiddleware(app.wsgi_app)
 ```
 </details>
 
 <details markdown="1">
 <summary>Django</summary>
 
-```Python
+```python
 # settings.py
-
 MIDDLEWARE = [
-    ...
-    "profyle.django.ProfyleMiddleware",
+    "profyle.django.ProfyleMiddleware",  # first, so it traces the other middlewares too
     ...
 ]
 ```
 </details>
 
-### 2. Run
-* Run the web server:
+<details markdown="1">
+<summary>Any ASGI or WSGI framework (Litestar, Quart, Falcon, Bottle, Pyramid…)</summary>
 
-<div class="termy">
+```python
+from profyle.asgi import ProfyleMiddleware   # ASGI apps
+app = ProfyleMiddleware(app)
+
+from profyle.wsgi import ProfyleMiddleware   # WSGI apps
+app = ProfyleMiddleware(app)
+```
+</details>
+
+An explicit middleware takes precedence over `profyle run`, so you can keep it and
+still use `profyle run`.
+
+## Configuration
+Every integration reads the same settings. Each one comes from, in order of priority:
+an environment variable, the code (middleware arguments or Django `PROFYLE_*` settings),
+`[tool.profyle]` in `pyproject.toml`, or the default. `profyle doctor` shows the values
+in use and where each one comes from.
+
+| Setting | Environment variable | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | `PROFYLE_ENABLED` | `true` | Trace requests at all |
+| `pattern` | `PROFYLE_PATTERN` | all paths | Only trace paths matching this [glob](https://en.wikipedia.org/wiki/Glob_(programming)), e.g. `/api/*` |
+| `max_stack_depth` | `PROFYLE_MAX_STACK_DEPTH` | `-1` (unlimited) | Maximum call stack depth to record |
+| `min_duration` | `PROFYLE_MIN_DURATION` | `0` | Drop function calls shorter than this, in **microseconds** |
+| `console` | `PROFYLE_CONSOLE` | `true` | Print one line per traced request |
+
+```toml
+# pyproject.toml
+[tool.profyle]
+pattern = "/api/*"
+max-stack-depth = 30
+```
+
+Other environment variables: `PROFYLE_DB` (trace database, see
+[Trace database](#trace-database)), `PROFYLE_CAPTURE_SECRETS` and
+`PROFYLE_REPLAY_ALLOW_REMOTE` (see [Replay safety](#replay-safety)).
+
+## Browse traces
+`profyle start` opens a web UI listing your traces with their main finding; open one to
+explore it in Perfetto, with source code, arguments and return values.
 
 ```console
 $ profyle start
-
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [28720]
-INFO:     Started server process [28722]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
 ```
 
-</div>
+![Traces](https://github.com/vpcarlos/profyle/blob/main/docs/img/traces.png?raw=true "Traces")
 
-### 3. List
-* List all requests tracing:
+Profyle stands on the shoulders of giants:
+[VizTracer](https://github.com/gaogaotiantian/viztracer) and
+[Perfetto](https://github.com/google/perfetto). Traces include threads and async code.
 
-![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/traces.png?raw=true "Traces")
+![Trace](https://github.com/vpcarlos/profyle/blob/main/docs/img/trace1.png?raw=true "Trace1")
 
-### 4. Analyze
-* Profyle stands on the shoulder of giants: <a href="https://github.com/gaogaotiantian/viztracer" class="external-link" target="_blank">Viztracer</a> and  <a href="https://github.com/google/perfetto" class="external-link" target="_blank">Perfetto</a>
-* Detailed function entry/exit information on timeline with source code
-* Super easy to use, no source code change for most features, no package dependency
-* Supports threading, multiprocessing, subprocess and async
-* Powerful front-end, able to render GB-level trace smoothly
-* Works on Linux/MacOS/Window
+![Trace detail](https://github.com/vpcarlos/profyle/blob/main/docs/img/trace2.png?raw=true "Trace2")
 
-![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/trace1.png?raw=true "Trace1")
-
-![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/trace2.png?raw=true "Trace2")
-
-
-
-## Fix slow endpoints with Claude Code
-Tell Claude Code *"GET /orders is slow"* and it finds the bottleneck in the real trace,
-fixes your code, replays the same request and shows you the before/after.
-
-### 1. Install
-```console
-$ pip install "profyle[mcp]"
-```
-Add `ProfyleMiddleware` to your app (see [Example](#example)) and run it from your
-project, ideally with auto-reload:
-```console
-$ uvicorn main:app --reload
-```
-Traces go to `<project>/.profyle/profile.db`, a folder git ignores automatically.
-`profyle doctor` checks that everything is wired up.
-
-### 2. Add the Claude Code plugin
-```console
-$ claude plugin marketplace add vpcarlos/profyle
-$ claude plugin install profyle@profyle
-```
-The plugin bundles the `profyle` MCP server and the `fix-slow-endpoint` skill, which
-Claude uses automatically when you mention a slow endpoint (or run
-`/profyle:fix-slow-endpoint`). It starts `profyle` from your `PATH`; if that is not your
-project's environment, set `PROFYLE_COMMAND=/path/to/.venv/bin/profyle`.
-
-Without the plugin, register just the MCP server from your project directory:
-`claude mcp add profyle -- profyle mcp`
-
-### 3. Ask
-Hit the slow endpoint once, then ask Claude Code about it. The skill makes it:
-1. run `doctor` and tell you exactly what to fix if the setup is incomplete;
+## How Claude works with your traces
+The skill makes Claude:
+1. run `doctor` and, if needed, start your app with `profyle run`;
 2. take a warm baseline by replaying the request (`replay_request`);
 3. read the trace **digest**: critical path per thread, top self time, your own code, I/O
    wait and repeated calls from the same caller (N+1 candidates), each with `file:line`.
@@ -221,9 +222,9 @@ Hit the slow endpoint once, then ask Claude Code about it. The skill makes it:
 
 ### Digests are precomputed
 Each trace's digest and a one-line **main finding** (e.g. `repeated: list_orders →
-get_customer ×100 (83%)`) are stored next to it. They are computed by the reader side,
-never in your app's request path: the MCP server digests new traces in the background,
-and any analysis stores its result. Listings in the MCP tools and in the web UI show the
+get_customer ×100 (83%)`) are stored next to it. They are computed outside your app's
+request path: by a separate console process when `console` is on, by the MCP server in
+the background, or by any analysis. Listings in the MCP tools and in the web UI show the
 finding, and analyzing a trace again is instant.
 
 ### Same speed-up, same data
@@ -259,6 +260,17 @@ Versions before 0.4 stored traces inside the installed package; `profyle doctor`
 it still finds traces there.
 
 ## CLI Commands
+### run
+* Run the command that starts your app with tracing, no code changes
+
+<div class="termy">
+
+```console
+$ profyle run uvicorn main:app --reload
+```
+
+</div>
+
 ### start
 * Start the web server and view profile traces
 

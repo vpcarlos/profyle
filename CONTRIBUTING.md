@@ -19,6 +19,7 @@ Profyle uses [uv](https://docs.astral.sh/uv/) and supports Python 3.10 and newer
 $ git clone https://github.com/vpcarlos/profyle && cd profyle
 $ uv sync                  # creates .venv with the dev dependencies
 $ uv run pytest            # run the test suite
+$ uv run pytest -m "not integration"   # skip the tests that start real servers
 $ uv run ruff check profyle tests
 ```
 
@@ -28,15 +29,27 @@ Optionally, install the git hooks so lint runs on every commit:
 $ uvx pre-commit install
 ```
 
-To try your changes against a real app, install your checkout into the app's
-environment (`pip install -e /path/to/profyle[mcp]`), add `ProfyleMiddleware`, make a
-request and run `profyle doctor` and `profyle analyze` from the app's directory.
+To try your changes against a real app, use the apps in [`examples/`](examples/) (one per
+framework, each with an N+1 query and no Profyle code), for example:
+
+```console
+$ cd examples/fastapi && uv run profyle run uvicorn main:app --reload
+$ curl localhost:8000/orders            # prints a profyle ▸ line in the server console
+$ uv run profyle doctor
+```
+
+The integration tests in `tests/integration/` run exactly these apps through
+`profyle run`.
 
 ## Project layout
 
 | Path | What lives there |
 |---|---|
-| `profyle/infrastructure/middleware/` | FastAPI/Starlette (ASGI), Flask (WSGI) and Django middlewares; `threadpool.py` makes worker threads traceable on Python < 3.12 |
+| `profyle/config.py` | Settings shared by every integration (environment, code, `[tool.profyle]`) |
+| `profyle/infrastructure/middleware/` | Generic ASGI and WSGI middlewares (FastAPI and Flask are aliases), Django middleware, shared `base.py`; `threadpool.py` makes worker threads traceable on Python < 3.12 |
+| `profyle/infrastructure/autoinstrument.py`, `profyle/_run/` | `profyle run`: import hooks that add the middleware when a framework loads |
+| `profyle/infrastructure/console.py` | One line per traced request, built in a separate process |
+| `examples/` | One app per framework with an N+1 query, used by the integration tests |
 | `profyle/application/analysis/` | Trace digest (`digest.py`) and the text tools shared by the CLI and the MCP server (`toolkit.py`) |
 | `profyle/application/` | Request capture, response fingerprints and replay |
 | `profyle/infrastructure/mcp_server.py` | MCP server (`profyle mcp`) |

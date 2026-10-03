@@ -7,6 +7,7 @@ time per function), the critical path, repeated calls (N+1 patterns), time spent
 waiting on I/O and which of those frames belong to the user's own code.
 """
 
+import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -263,6 +264,25 @@ def build_digest(
     }
 
 
+COMPREHENSION = re.compile(r"\.<locals>\.<(listcomp|dictcomp|setcomp|genexpr)>$")
+COMPREHENSION_KINDS = {
+    "<listcomp>": "list comprehension",
+    "<dictcomp>": "dict comprehension",
+    "<setcomp>": "set comprehension",
+    "<genexpr>": "generator expression",
+}
+
+
+def _readable(function: str, location: str | None = None) -> str:
+    # "list_orders.<locals>.<listcomp>" -> "list_orders": the loop lives in that function,
+    # and Python 3.12+ inlines comprehensions anyway (PEP 709). Python 3.10 names the
+    # frame just "<listcomp>", so point at its file and line instead.
+    if function in COMPREHENSION_KINDS:
+        where = f" at {os.path.basename(location)}" if location else ""
+        return COMPREHENSION_KINDS[function] + where
+    return COMPREHENSION.sub("", function)
+
+
 def headline(digest: dict[str, Any]) -> str:
     """One line naming the main suspect of a trace, for listings."""
     total = digest["total_ms"]
@@ -275,8 +295,9 @@ def headline(digest: dict[str, Any]) -> str:
     )
     if repeated and repeated["pct_of_total"] >= 20:
         return (
-            f"repeated: {repeated['parent']} → {repeated['callee']} ×{repeated['calls']} "
-            f"({repeated['pct_of_total']}%)"
+            f"repeated: {_readable(repeated['parent'], repeated.get('parent_location'))} → "
+            f"{_readable(repeated['callee'], repeated.get('callee_location'))} "
+            f"×{repeated['calls']} ({repeated['pct_of_total']}%)"
         )
     if digest["top_self_time"]:
         top = digest["top_self_time"][0]

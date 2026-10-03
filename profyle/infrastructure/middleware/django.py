@@ -1,3 +1,4 @@
+import warnings
 from collections.abc import Callable
 from typing import Any
 
@@ -6,49 +7,89 @@ from django.core.exceptions import DisallowedHost
 from django.http import HttpRequest
 from django.http.request import RawPostDataException
 
-from profyle.application.profyle import profyle
 from profyle.application.request_capture import MAX_BODY_BYTES, build_recorded_request
 from profyle.application.response_fingerprint import MAX_FINGERPRINT_BYTES, fingerprint
 from profyle.domain.trace import RecordedRequest
 from profyle.domain.trace_repository import TraceRepository
-from profyle.infrastructure.middleware.threadpool import trace_worker_threads
-from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
+from profyle.infrastructure.middleware.base import MIDDLEWARE, Integration
+
+# Marker shared with the ASGI/WSGI middlewares so a request is traced only once.
+TRACED = "profyle.traced"
 
 
-def get_setting(name: str, default: Any|None = None) -> Any:
+def get_setting(name: str, default: Any | None = None) -> Any:
     return getattr(settings, name, default)
 
 
+def _min_duration_setting() -> Any:
+    value = get_setting("PROFYLE_MIN_DURATION")
+    if value is None and get_setting("MIN_DURATION") is not None:
+        warnings.warn(
+            "The MIN_DURATION setting is deprecated; use PROFYLE_MIN_DURATION.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        value = get_setting("MIN_DURATION")
+    return value
+
+
 class ProfyleMiddleware:
+    """Add "profyle.django.ProfyleMiddleware" to MIDDLEWARE (first, to trace the rest).
+
+    PROFYLE_* Django settings act as code configuration; environment variables and
+    `[tool.profyle]` in pyproject.toml work as for the other integrations.
+    """
+
+    mode = MIDDLEWARE
+
     def __init__(self, get_response: Callable):
         self.get_response = get_response
-        self.enabled: bool = get_setting("PROFYLE_ENABLED", True)
-        self.pattern: str|None = get_setting("PROFYLE_PATTERN", None)
-        self.max_stack_depth: int = get_setting("PROFYLE_MAX_STACK_DEPTH", -1)
-        self.min_duration: int = get_setting("MIN_DURATION", 0)
-        self.trace_repo: TraceRepository = SQLiteTraceRepository()
-        if self.enabled:
-            trace_worker_threads()
+        self.integration = Integration(
+            "Django",
+            mode=self.mode,
+            enabled=get_setting("PROFYLE_ENABLED"),
+            pattern=get_setting("PROFYLE_PATTERN"),
+            max_stack_depth=get_setting("PROFYLE_MAX_STACK_DEPTH"),
+            min_duration=_min_duration_setting(),
+            console=get_setting("PROFYLE_CONSOLE"),
+        )
+
+    @property
+    def trace_repo(self) -> TraceRepository:
+        return self.integration.repo
+
+    @trace_repo.setter
+    def trace_repo(self, repo: TraceRepository) -> None:
+        self.integration.repo = repo
 
     def __call__(self, request: HttpRequest):
-        profyle_enabled = self.enabled
-        is_http = request.scheme and request.scheme.startswith("http")
         method = request.method and request.method.upper()
+        if not self.integration.config.enabled or not method or _already_traced(request):
+            return self.get_response(request)
+        request.META[TRACED] = True
 
-        if profyle_enabled and is_http and method:
-            response = None
-            with profyle(
-                name=f"{method} {request.get_full_path()}",
-                pattern=self.pattern,
-                repo=self.trace_repo,
-                max_stack_depth=self.max_stack_depth,
-                min_duration=self.min_duration,
-            ) as trace:
-                try:
-                    response = self.get_response(request)
-                    return response
-                finally:
-                    trace.request = lambda: _recorded_request(request, response)
+        response = None
+        with self.integration.tracer(f"{method} {request.get_full_path()}") as trace:
+            try:
+                response = self.get_response(request)
+                return response
+            finally:
+                trace.request = lambda: _recorded_request(request, response)
+
+
+class AutoProfyleMiddleware(ProfyleMiddleware):
+    """Inserted by `profyle run`; same as ProfyleMiddleware but reported as such."""
+
+    mode = "profyle run"
+
+    def __init__(self, get_response: Callable):
+        super().__init__(get_response)
+        self.integration.register()
+
+
+def _already_traced(request: HttpRequest) -> bool:
+    # WSGI: META is the environ. ASGI: Django keeps the scope on the request.
+    return bool(request.META.get(TRACED) or getattr(request, "scope", {}).get(TRACED))
 
 
 def _recorded_request(request: HttpRequest, response: Any) -> RecordedRequest:

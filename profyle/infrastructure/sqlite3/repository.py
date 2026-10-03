@@ -12,6 +12,8 @@ class SQLiteTraceRepository(TraceRepository):
         if not db:
             db = get_connection()
         self.db = db
+        # File behind the connection ("" for in-memory databases).
+        self.db_path: str = db.execute("PRAGMA database_list").fetchone()[2] or ""
         # Readers (CLI, MCP server) may open the database before the app wrote anything.
         self.create_trace_table()
         self.create_trace_selected_table()
@@ -97,7 +99,7 @@ class SQLiteTraceRepository(TraceRepository):
         except Error as error:
             print("Failed to insert data into selected_trace table", error)
 
-    def store_trace(self, trace: TraceCreate) -> None:
+    def store_trace(self, trace: TraceCreate) -> int | None:
         try:
             self.create_trace_table()
             cursor = self.db.cursor()
@@ -115,10 +117,13 @@ class SQLiteTraceRepository(TraceRepository):
             )
             cursor.execute(insert_query, data_tuple)
             self.db.commit()
+            trace_id = cursor.lastrowid
             cursor.close()
+            return trace_id
 
         except Error as error:
             print("Failed to insert data into trace table", error)
+            return None
 
     def update_trace_request(self, trace_id: int, request: RecordedRequest) -> None:
         cursor = self.db.cursor()
@@ -128,6 +133,20 @@ class SQLiteTraceRepository(TraceRepository):
         )
         self.db.commit()
         cursor.close()
+
+    def store_runtime(self, info: dict[str, Any]) -> None:
+        cursor = self.db.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS runtime (id INTEGER PRIMARY KEY, info JSON)")
+        cursor.execute("REPLACE INTO runtime (id, info) VALUES (1, ?)", (json.dumps(info),))
+        self.db.commit()
+        cursor.close()
+
+    def get_runtime(self) -> dict[str, Any] | None:
+        cursor = self.db.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS runtime (id INTEGER PRIMARY KEY, info JSON)")
+        row = cursor.execute("SELECT info FROM runtime WHERE id = 1").fetchone()
+        cursor.close()
+        return json.loads(row[0]) if row else None
 
     def get_digest(self, trace_id: int) -> dict[str, Any] | None:
         cursor = self.db.cursor()

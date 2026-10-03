@@ -40,7 +40,23 @@ compare_traces  ←  replay the same request  ←  code change
   the same frame to keep its per-thread stack balanced. Python 3.12+ uses
   `sys.monitoring` and needs none of this.
 
+- **Zero-code integration.** `profyle run` puts `profyle/_run/sitecustomize.py` on
+  `PYTHONPATH`; it installs import hooks that add the middleware when FastAPI/Starlette
+  (`Starlette.__call__`), Flask (`Flask.__init__`), Django (`load_middleware`) or uvicorn
+  (`Config.load`, for any other ASGI app) is imported. Explicit middlewares win, and a
+  marker on the request keeps nested middlewares from tracing it twice.
+- **Feedback without overhead.** The one-line console summary is built by a separate
+  process that reads the stored trace, so requests never wait for the digest.
+
 ## Roadmap
+
+### Next
+- **pytest plugin (`--profyle`)** that traces the requests made by test clients, stores
+  them under the test name and compares them with a per-test baseline, with a GitHub
+  Action that comments regressions on pull requests.
+- **More servers for `profyle run`**: generic ASGI apps under hypercorn, granian or
+  gunicorn's uvicorn workers (FastAPI, Flask and Django are already covered under any
+  server).
 
 ### Deterministic detectors (no LLM needed)
 - **SQL N+1 detection**: `cursor.execute` arguments are already recorded; normalize the
@@ -54,8 +70,6 @@ compare_traces  ←  replay the same request  ←  code change
   timeline.
 
 ### Teams and CI
-- **pytest plugin (`--profyle`)** that traces integration tests and compares them with a
-  per-endpoint baseline, plus a GitHub Action that comments regressions on pull requests.
 - **"Slow requests only" mode**: keep a trace only when the whole request exceeds a
   threshold (today `min_duration` filters functions, not requests), and 1-in-N sampling.
 

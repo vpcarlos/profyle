@@ -100,3 +100,35 @@ async def test_should_trace_async_views_under_asgi_on_every_request():
         }
         assert calls.get("lookup_in_pool") == 3, calls
         assert calls.get("lookup", 0) >= 3, calls
+
+
+def test_disabled_middleware_still_returns_the_response():
+    from django.test import override_settings
+
+    os.environ.setdefault(
+        "DJANGO_SETTINGS_MODULE", "tests.unit.infrastructure.middleware.django.settings"
+    )
+    repo = InMemoryTraceRepository()
+    with override_settings(PROFYLE_ENABLED=False):
+        middleware = ProfyleMiddleware(lambda request: HttpResponse("ok"))
+        middleware.trace_repo = repo
+        response = middleware(RequestFactory().get("/x"))
+
+    assert response.content == b"ok"
+    assert repo.traces == []
+
+
+def test_reads_profyle_min_duration_and_warns_on_old_setting():
+    import pytest
+    from django.test import override_settings
+
+    os.environ.setdefault(
+        "DJANGO_SETTINGS_MODULE", "tests.unit.infrastructure.middleware.django.settings"
+    )
+    with override_settings(PROFYLE_MIN_DURATION=5):
+        assert ProfyleMiddleware(lambda r: None).integration.config.min_duration == 5
+
+    with override_settings(MIN_DURATION=7):
+        with pytest.warns(DeprecationWarning, match="PROFYLE_MIN_DURATION"):
+            middleware = ProfyleMiddleware(lambda r: None)
+    assert middleware.integration.config.min_duration == 7

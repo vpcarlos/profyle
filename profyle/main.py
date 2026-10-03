@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import os
+import sys
 
 from profyle.application.trace.delete import delete_all_selected_traces, delete_all_traces
 from profyle.application.trace.vacuum import vacuum
@@ -73,6 +74,44 @@ def replay(args: argparse.Namespace) -> None:
         print(error)
 
 
+def run_command(command: list[str]) -> None:
+    """Run the user's server command with zero-code tracing (see autoinstrument)."""
+    import shutil
+    import subprocess
+
+    from profyle.settings import find_project_root
+
+    if command and command[0] == "--":
+        command = command[1:]
+    if not command:
+        print("Usage: profyle run <command>, e.g. profyle run uvicorn main:app --reload")
+        sys.exit(2)
+    executable = shutil.which(command[0])
+    if executable is None:
+        print(f"profyle run: command not found: {command[0]}")
+        sys.exit(127)
+
+    bootstrap = settings.get_path("_run")
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(filter(None, [bootstrap, env.get("PYTHONPATH")]))
+    env["PROFYLE_RUN"] = "1"
+    # Pin the database and the project for every child process (reloaders, workers),
+    # even if they change directory.
+    env.setdefault("PROFYLE_DB", settings.get_db_path())
+    env.setdefault("PROFYLE_PROJECT_DIR", find_project_root(os.getcwd()))
+
+    from profyle.infrastructure.console import display_path, say
+
+    say(
+        f"tracing requests of `{' '.join(command)}` → {display_path(env['PROFYLE_DB'])}. "
+        "Each request prints a summary line here; ask Claude Code about a slow one, "
+        "or run `profyle start` to browse traces."
+    )
+    if os.name == "nt":
+        sys.exit(subprocess.call([executable, *command[1:]], env=env))
+    os.execve(executable, [command[0], *command[1:]], env)
+
+
 def doctor() -> None:
     from profyle.application.analysis import toolkit
 
@@ -125,6 +164,15 @@ def main():
         "--allow-unsafe", action="store_true", help="Allow POST/PUT/PATCH/DELETE"
     )
 
+    # run
+    parser_run = subparsers.add_parser(
+        "run",
+        help="Run your app with tracing, no code changes (e.g. profyle run uvicorn main:app)",
+    )
+    parser_run.add_argument(
+        "command_args", nargs=argparse.REMAINDER, help="Command that starts the app"
+    )
+
     # doctor
     subparsers.add_parser("doctor", help="Check that traces are recorded and replayable")
 
@@ -145,6 +193,8 @@ def main():
         analyze(args.trace_id)
     elif args.command == "replay":
         replay(args)
+    elif args.command == "run":
+        run_command(args.command_args)
     elif args.command == "doctor":
         doctor()
     elif args.command == "mcp":

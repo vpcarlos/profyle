@@ -13,5 +13,5 @@ def store_trace(
     name: str,
     repo: TraceRepository,
     request: RecordedRequest | None = None,
-) -> None:
-    repo.store_trace(TraceCreate(raw_trace=raw_trace, name=name, request=request))
+) -> int | None:
+    return repo.store_trace(TraceCreate(raw_trace=raw_trace, name=name, request=request))
