@@ -59,3 +59,44 @@ def test_should_record_the_request_for_replay():
     assert request.headers["authorization"] == "[redacted]"
     assert request.status_code == 201
     assert request.response.size == len(b'{"ok": true}')
+
+
+async def test_should_trace_async_views_under_asgi_on_every_request():
+    """Under ASGI Django runs this (sync) middleware in a worker thread and async views
+    back on the event loop thread; both, and sync_to_async code, must be traced."""
+    import asyncio
+
+    from asgiref.sync import async_to_sync, sync_to_async
+
+    from profyle.application.analysis.digest import build_digest
+
+    os.environ.setdefault(
+        "DJANGO_SETTINGS_MODULE",
+        "tests.unit.infrastructure.middleware.django.settings"
+    )
+
+    def lookup_in_pool(i):
+        return i
+
+    async def lookup(i):
+        await asyncio.sleep(0)
+        return await sync_to_async(lookup_in_pool, thread_sensitive=False)(i)
+
+    async def async_view(request):
+        return HttpResponse(str([await lookup(i) for i in range(3)]))
+
+    middleware = ProfyleMiddleware(async_to_sync(async_view))
+    repo = InMemoryTraceRepository()
+    middleware.trace_repo = repo
+
+    for _ in range(3):
+        await sync_to_async(middleware)(RequestFactory().get("/async"))
+
+    assert len(repo.traces) == 3
+    for trace in repo.traces:
+        calls = {
+            row["function"].rsplit(".", 1)[-1]: row["calls"]
+            for row in build_digest(trace.data, top=1000)["top_inclusive"]
+        }
+        assert calls.get("lookup_in_pool") == 3, calls
+        assert calls.get("lookup", 0) >= 3, calls

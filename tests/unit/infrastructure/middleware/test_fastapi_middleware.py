@@ -94,3 +94,41 @@ def test_should_trace_sync_endpoints_on_every_request(fastapi_app):
         digest = build_digest(trace.data, top=1000)
         functions = {row["function"] for row in digest["top_inclusive"]}
         assert any(name.endswith("slow_lookup") for name in functions), trace.name
+
+
+def test_should_trace_every_sync_dependency_in_a_request(fastapi_app):
+    """Several sync callables of one request may run in the same pool thread."""
+    from fastapi import Depends
+    from fastapi.testclient import TestClient
+
+    from profyle.application.analysis.digest import build_digest
+
+    def load_user():
+        return "user"
+
+    def load_settings():
+        return "settings"
+
+    def sync_dependency_a():
+        return load_user()
+
+    def sync_dependency_b():
+        return load_settings()
+
+    @fastapi_app.get("/deps")
+    def endpoint(a=Depends(sync_dependency_a), b=Depends(sync_dependency_b)):
+        return {"a": a, "b": b}
+
+    trace_repo = InMemoryTraceRepository()
+    fastapi_app.add_middleware(ProfyleMiddleware, trace_repo=trace_repo)
+
+    with TestClient(fastapi_app) as client:
+        for _ in range(3):
+            client.get("/deps")
+
+    for trace in trace_repo.traces:
+        functions = {
+            row["function"].rsplit(".", 1)[-1]
+            for row in build_digest(trace.data, top=1000)["top_inclusive"]
+        }
+        assert {"load_user", "load_settings", "endpoint"} <= functions, trace.name

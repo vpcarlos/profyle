@@ -87,6 +87,9 @@
                         {% else %}
                         {{trace.name}}
                         {% endif %}
+                        {% if trace.headline %}
+                        <div class="mt-1 text-xs font-normal text-gray-500">{{trace.headline}}</div>
+                        {% endif %}
                     </th>
                     <td class="px-7 py-4">
                         {{(trace.duration / 1000) | round(2)}}

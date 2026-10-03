@@ -7,6 +7,7 @@ from profyle.domain.trace_repository import TraceRepository
 class InMemoryTraceRepository(TraceRepository):
     def __init__(self):
         self.traces: list[Trace] = []
+        self.digests: dict[int, dict] = {}
         self.selected_trace: int = 0
 
     def create_trace_selected_table(self) -> None:
@@ -48,7 +49,20 @@ class InMemoryTraceRepository(TraceRepository):
     def get_all_traces(self) -> list[Trace]:
         return self.traces
 
-    def get_trace_by_id(self, id: int) -> Trace|None:
+    def get_digest(self, trace_id: int) -> dict | None:
+        return self.digests.get(trace_id)
+
+    def store_digest(self, trace_id: int, digest: dict, headline: str) -> None:
+        self.digests[trace_id] = digest
+        for trace in self.traces:
+            if trace.id == trace_id:
+                trace.headline = headline
+
+    def trace_ids_without_digest(self, limit: int) -> list[int]:
+        missing = [t.id for t in reversed(self.traces) if t.id not in self.digests]
+        return missing[:limit]
+
+    def get_trace_by_id(self, id: int, include_data: bool = True) -> Trace|None:
         for trace in self.traces:
             if trace.id == id:
                 return trace

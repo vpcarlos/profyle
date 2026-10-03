@@ -46,6 +46,9 @@ IO_HINTS = (
 
 USER, STDLIB, THIRD_PARTY, BUILTIN = "user", "stdlib", "third_party", "builtin"
 
+# Bump when the digest format or analysis changes: stored digests are rebuilt.
+DIGEST_VERSION = 1
+
 
 @dataclass
 class Node:
@@ -244,6 +247,7 @@ def build_digest(
         entry["pct_of_total"] = round(100 * entry["total_ms"] * 1000 / total, 1) if total else 0
 
     return {
+        "version": DIGEST_VERSION,
         "total_ms": _ms(total),
         "event_count": len(events),
         "threads": len(trees),
@@ -257,6 +261,29 @@ def build_digest(
         "repeated_calls": repeated_list,
         "metadata": raw_trace.get("viztracer_metadata", {}),
     }
+
+
+def headline(digest: dict[str, Any]) -> str:
+    """One line naming the main suspect of a trace, for listings."""
+    total = digest["total_ms"]
+    if not total:
+        return "empty trace"
+    # Recursion (a function calling itself, e.g. a serializer walking a tree) is not
+    # a repeated-call smell like an N+1.
+    repeated = next(
+        (r for r in digest["repeated_calls"] if r["parent"] != r["callee"]), None
+    )
+    if repeated and repeated["pct_of_total"] >= 20:
+        return (
+            f"repeated: {repeated['parent']} → {repeated['callee']} ×{repeated['calls']} "
+            f"({repeated['pct_of_total']}%)"
+        )
+    if digest["top_self_time"]:
+        top = digest["top_self_time"][0]
+        pct = round(100 * top["self_ms"] / total, 1)
+        kind = "wait" if is_io_like(top["function"]) else "hot"
+        return f"{kind}: {top['function']} {top['self_ms']} ms ({pct}%)"
+    return "no function calls recorded"
 
 
 def _hot_path(trees: dict[tuple[Any, Any], list[Node]], total: float, max_depth: int = 40):

@@ -27,6 +27,9 @@ fixes to the user in plain words and wait for them before going on. Typical fixe
 
 - If the user named the endpoint, call `list_traces(name_contains=...)`. Otherwise call
   `slowest_endpoints` and confirm with the user which one to work on.
+- Listings show each trace's **main finding** (for example `repeated: a → b ×100 (83%)`).
+  It is a starting point, not the diagnosis: confirm it with `analyze_trace`. A first,
+  much slower trace usually shows warm-up (imports, regex compiling) instead.
 
 ## 2. Get a trustworthy baseline
 

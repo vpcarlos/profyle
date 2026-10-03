@@ -11,6 +11,7 @@ from profyle.application.request_capture import MAX_BODY_BYTES, build_recorded_r
 from profyle.application.response_fingerprint import MAX_FINGERPRINT_BYTES, fingerprint
 from profyle.domain.trace import RecordedRequest
 from profyle.domain.trace_repository import TraceRepository
+from profyle.infrastructure.middleware.threadpool import trace_worker_threads
 from profyle.infrastructure.sqlite3.repository import SQLiteTraceRepository
 
 
@@ -26,6 +27,8 @@ class ProfyleMiddleware:
         self.max_stack_depth: int = get_setting("PROFYLE_MAX_STACK_DEPTH", -1)
         self.min_duration: int = get_setting("MIN_DURATION", 0)
         self.trace_repo: TraceRepository = SQLiteTraceRepository()
+        if self.enabled:
+            trace_worker_threads()
 
     def __call__(self, request: HttpRequest):
         profyle_enabled = self.enabled

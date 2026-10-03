@@ -1,5 +1,6 @@
 import json
 from sqlite3 import Connection, Error, Row
+from typing import Any
 
 from profyle.domain.trace import RecordedRequest, Trace, TraceCreate
 from profyle.domain.trace_repository import TraceRepository
@@ -36,15 +37,18 @@ class SQLiteTraceRepository(TraceRepository):
                 data JSON NOT NULL,
                 duration REAL NOT NULL,
                 name VARCHAR(64) NOT NULL,
-                request JSON
+                request JSON,
+                digest JSON,
+                headline TEXT
             );
             """
         )
-        # Databases created by older versions have no `request` column.
+        # Databases created by older versions lack the newer columns.
         columns = {row[1] for row in cursor.execute("PRAGMA table_info(traces)")}
-        if "request" not in columns:
-            cursor.execute("ALTER TABLE traces ADD COLUMN request JSON")
-            self.db.commit()
+        for column, kind in (("request", "JSON"), ("digest", "JSON"), ("headline", "TEXT")):
+            if column not in columns:
+                cursor.execute(f"ALTER TABLE traces ADD COLUMN {column} {kind}")
+        self.db.commit()
 
     def delete_all_traces(self) -> int:
         cursor = self.db.cursor()
@@ -125,12 +129,35 @@ class SQLiteTraceRepository(TraceRepository):
         self.db.commit()
         cursor.close()
 
+    def get_digest(self, trace_id: int) -> dict[str, Any] | None:
+        cursor = self.db.cursor()
+        row = cursor.execute("SELECT digest FROM traces WHERE id = ?", (trace_id,)).fetchone()
+        cursor.close()
+        return json.loads(row[0]) if row and row[0] else None
+
+    def store_digest(self, trace_id: int, digest: dict[str, Any], headline: str) -> None:
+        cursor = self.db.cursor()
+        cursor.execute(
+            "UPDATE traces SET digest = ?, headline = ? WHERE id = ?",
+            (json.dumps(digest), headline, trace_id),
+        )
+        self.db.commit()
+        cursor.close()
+
+    def trace_ids_without_digest(self, limit: int) -> list[int]:
+        cursor = self.db.cursor()
+        rows = cursor.execute(
+            "SELECT id FROM traces WHERE digest IS NULL ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+        cursor.close()
+        return [row[0] for row in rows]
+
     def get_all_traces(self) -> list[Trace]:
         self.db.row_factory = Row
         cursor = self.db.cursor()
         cursor.execute("""
             SELECT
-            id, timestamp, duration, name, request
+            id, timestamp, duration, name, request, headline
             FROM traces
             ORDER BY timestamp DESC, id DESC
         """)
@@ -143,10 +170,13 @@ class SQLiteTraceRepository(TraceRepository):
             traces.append(Trace(**trace))
         return traces
 
-    def get_trace_by_id(self, id: int) -> Trace|None:
+    def get_trace_by_id(self, id: int, include_data: bool = True) -> Trace|None:
         self.db.row_factory = Row
         cursor = self.db.cursor()
-        cursor.execute("SELECT * FROM traces where id = ?", (id,))
+        columns = "id, timestamp, duration, name, request, headline" + (
+            ", data" if include_data else ""
+        )
+        cursor.execute(f"SELECT {columns} FROM traces where id = ?", (id,))
         trace = cursor.fetchone()
         if trace:
             trace_dict = dict(trace)

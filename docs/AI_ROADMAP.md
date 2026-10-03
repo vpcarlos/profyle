@@ -131,11 +131,27 @@ caliente) → `analyze_trace` → edición → `replay_request` ×3 → `compare
 
 ## 4. Hoja de ruta propuesta (por impacto/esfuerzo)
 
-### Fase 1: siguientes pasos
-1. **Precalcular el digest al guardar** (columna `digest` en SQLite): listados y MCP
-   instantáneos, y permite filtrar por "trazas con N+1" sin abrir los blobs.
-2. **Hilos de Django ASGI** (`sync_to_async` de asgiref): el mismo problema de pool de
-   hilos que se arregló para FastAPI/Starlette.
+### Fase 1: hecho
+1. **Digest precalculado**: columnas `digest` y `headline` en SQLite (migración
+   automática), con versión para regenerarlos si cambia el análisis. Se calculan en el
+   lado lector, nunca en la petición de la app: el servidor MCP los genera en segundo
+   plano y cualquier análisis los guarda. `list_traces`, `slowest_endpoints` (sobre la
+   traza típica, no la más lenta, que suele ser la fría) y la lista web muestran el
+   hallazgo principal; `analyze_trace` pasa de segundos a ~8 ms.
+2. **Django bajo ASGI**: medido con uvicorn. Las vistas síncronas ya se trazaban; las
+   **vistas async no se trazaban nunca** (el middleware corre en un hilo y la vista en
+   el del event loop), y `sync_to_async(thread_sensitive=False)` solo la primera vez. Se
+   arregla en los puentes de asgiref (`async_to_sync`/`sync_to_async`), igual que con
+   anyio para FastAPI. De paso apareció y se arregló un fallo que afectaba también a
+   FastAPI: varias funciones síncronas de una misma petición en el mismo hilo del pool
+   (p. ej. varias dependencias) solo se trazaban la primera vez. Hay que usar
+   `pause()`/`resume()` de VizTracer en el mismo frame; `sys.setprofile(None)`
+   desbalancea su pila.
+
+**Pendiente de investigar**: en las primeras ~30 ejecuciones de los tests hubo 2 caídas
+del intérprete (fatal error) al terminar el proceso; no se reprodujo en ~355 ejecuciones
+posteriores (incluidas 100 en paralelo). Sospecha: hilos todavía enganchados a un tracer
+durante el apagado. No se ha podido aislar.
 
 ### Fase 2: detectores deterministas (sin LLM, baratos y fiables)
 4. **N+1 de SQL real**: los argumentos de `cursor.execute` ya se graban; normalizar el

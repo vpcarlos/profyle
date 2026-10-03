@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from profyle.domain.trace import RecordedRequest, Trace, TraceCreate
 
@@ -32,7 +33,16 @@ class TraceRepository(ABC):
     def get_all_traces(self) -> list[Trace]: ...
 
     @abstractmethod
-    def get_trace_by_id(self, id: int) -> Trace | None: ...
+    def get_trace_by_id(self, id: int, include_data: bool = True) -> Trace | None: ...
+
+    @abstractmethod
+    def get_digest(self, trace_id: int) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def store_digest(self, trace_id: int, digest: dict[str, Any], headline: str) -> None: ...
+
+    @abstractmethod
+    def trace_ids_without_digest(self, limit: int) -> list[int]: ...
 
     @abstractmethod
     def get_trace_selected(self) -> int | None: ...

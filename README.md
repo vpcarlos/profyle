@@ -195,13 +195,20 @@ Hit the slow endpoint once, then ask Claude Code about it. The skill makes it:
 | MCP tool | |
 |---|---|
 | `doctor` | Checks the trace database, recorded requests and that the app is running |
-| `slowest_endpoints` | Endpoints ranked by p95 |
-| `list_traces` | Recorded traces, filterable by name and duration |
+| `slowest_endpoints` | Endpoints ranked by p95, with the main finding of a typical trace |
+| `list_traces` | Recorded traces with their main finding, filterable by name and duration |
 | `analyze_trace` | Bottleneck digest of a trace |
 | `get_call_details` | Callers, callees, slowest calls with args and return values |
 | `get_function_source` | Source of a function as it was when traced |
 | `replay_request` | Send the traced request again, return the new traces |
 | `compare_traces` | Before/after deltas, plus status and response body verdict |
+
+### Digests are precomputed
+Each trace's digest and a one-line **main finding** (e.g. `repeated: list_orders →
+get_customer ×100 (83%)`) are stored next to it. They are computed by the reader side,
+never in your app's request path: the MCP server digests new traces in the background,
+and any analysis stores its result. Listings in the MCP tools and in the web UI show the
+finding, and analyzing a trace again is instant.
 
 ### Same speed-up, same data
 Each trace keeps a fingerprint of the response body, never the body itself: a hash of the

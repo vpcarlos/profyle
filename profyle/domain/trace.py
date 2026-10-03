@@ -107,6 +107,7 @@ class Trace(BaseModel):
     duration: float = 0
     data: dict[Any, Any] | None = None
     request: RecordedRequest | None = None
+    headline: str | None = Field(None, description="Main finding of the stored digest")
 
 
 class TraceCreate(BaseModel):

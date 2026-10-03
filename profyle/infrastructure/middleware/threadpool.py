@@ -1,24 +1,105 @@
-"""Trace sync code that ASGI frameworks run in a worker thread pool.
+"""Trace code that frameworks run in a thread other than the one that started tracing.
 
-On Python < 3.12 VizTracer hooks each thread with sys.setprofile, and only threads
-created while a trace is running get hooked. Pool threads are long-lived, so from the
-second request on a sync FastAPI endpoint (or sync dependency) would be invisible.
-Starlette and FastAPI send all sync work through `anyio.to_thread.run_sync`, so while a
-request is traced we enable tracing inside the worker thread before running the work.
-Python 3.12+ traces every thread through sys.monitoring and needs none of this.
+On Python < 3.12 VizTracer hooks each thread with sys.setprofile, and only the thread that
+starts the tracer plus threads created while it runs get hooked. Long-lived threads are
+therefore invisible:
+
+- FastAPI/Starlette run sync endpoints and dependencies in a reused worker pool through
+  `anyio.to_thread.run_sync`.
+- Django under ASGI runs the (sync) Profyle middleware in a worker thread and async views
+  back on the event loop thread through asgiref's `async_to_sync`; `sync_to_async` sends
+  sync code to executor threads.
+
+While a request is traced, these bridges enable tracing inside the thread that actually
+runs the code and unhook it afterwards, so the pool thread does not keep the request's
+tracer (and its event buffer) alive. Python 3.12+ traces every thread through
+sys.monitoring and needs none of this.
 """
 
+import copy
 import functools
 import sys
+import threading
+
+from viztracer import VizTracer
 
 from profyle.application.profyle import active_tracer
 
-_patched = False
+_patched: set[str] = set()
 
 
 def trace_worker_threads() -> None:
-    global _patched
-    if _patched or sys.version_info >= (3, 12):
+    if sys.version_info >= (3, 12):
+        return
+    _patch_anyio()
+    _patch_asgiref()
+
+
+# VizTracer is attached to a thread with enable_thread_tracing() the first time and
+# paused/resumed afterwards. Both calls must happen in the same frame (like start/stop):
+# hooking or unhooking inside a helper, or with sys.setprofile(None), leaves VizTracer's
+# per-thread call stack unbalanced and it stops tracing that thread for good
+# ("Unexpected function return"). pause() also drops the thread's reference to the
+# tracer, so pool threads do not keep a finished request's event buffer alive.
+
+
+def _first_time_in_thread(tracer) -> bool:
+    threads = tracer.__dict__.setdefault("_profyle_threads", set())
+    thread_id = threading.get_ident()
+    if thread_id in threads:
+        return False
+    threads.add(thread_id)
+    return True
+
+
+def _restore(previous) -> None:
+    # Give back a profiler the user had installed; drop hooks of earlier tracers.
+    if previous is not None and not isinstance(previous, VizTracer):
+        sys.setprofile(previous)
+
+
+def _traced_sync(func, tracer):
+    @functools.wraps(func)
+    def traced(*args, **kwargs):
+        previous = sys.getprofile()
+        if previous is tracer:
+            # Already traced, e.g. thread-sensitive code returning to the thread that
+            # started the tracer: pausing it would stop the rest of the trace.
+            return func(*args, **kwargs)
+        if _first_time_in_thread(tracer):
+            tracer.enable_thread_tracing()
+        else:
+            tracer.resume()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            tracer.pause()
+            _restore(previous)
+
+    return traced
+
+
+def _traced_async(func, tracer):
+    @functools.wraps(func)
+    async def traced(*args, **kwargs):
+        previous = sys.getprofile()
+        if previous is tracer:
+            return await func(*args, **kwargs)
+        if _first_time_in_thread(tracer):
+            tracer.enable_thread_tracing()
+        else:
+            tracer.resume()
+        try:
+            return await func(*args, **kwargs)
+        finally:
+            tracer.pause()
+            _restore(previous)
+
+    return traced
+
+
+def _patch_anyio() -> None:
+    if "anyio" in _patched:
         return
     try:
         import anyio.to_thread
@@ -32,17 +113,42 @@ def trace_worker_threads() -> None:
         tracer = active_tracer()
         if tracer is None:
             return await original(func, *args, **kwargs)
-
-        def traced(*inner_args):
-            tracer.enable_thread_tracing()
-            try:
-                return func(*inner_args)
-            finally:
-                # Unhook so the pool thread does not keep this request's tracer (and its
-                # event buffer) alive after the request.
-                sys.setprofile(None)
-
-        return await original(traced, *args, **kwargs)
+        return await original(_traced_sync(func, tracer), *args, **kwargs)
 
     anyio.to_thread.run_sync = run_sync
-    _patched = True
+    _patched.add("anyio")
+
+
+def _patch_asgiref() -> None:
+    if "asgiref" in _patched:
+        return
+    try:
+        from asgiref.sync import AsyncToSync, SyncToAsync
+    except ImportError:
+        return
+
+    original_async_to_sync = AsyncToSync.__call__
+    original_sync_to_async = SyncToAsync.__call__
+
+    @functools.wraps(original_async_to_sync)
+    def async_to_sync_call(self, *args, **kwargs):
+        tracer = active_tracer()
+        if tracer is None:
+            return original_async_to_sync(self, *args, **kwargs)
+        # Work on a copy: the same wrapper may be shared by concurrent requests.
+        bridge = copy.copy(self)
+        bridge.awaitable = _traced_async(self.awaitable, tracer)
+        return original_async_to_sync(bridge, *args, **kwargs)
+
+    @functools.wraps(original_sync_to_async)
+    async def sync_to_async_call(self, *args, **kwargs):
+        tracer = active_tracer()
+        if tracer is None:
+            return await original_sync_to_async(self, *args, **kwargs)
+        bridge = copy.copy(self)
+        bridge.func = _traced_sync(self.func, tracer)
+        return await original_sync_to_async(bridge, *args, **kwargs)
+
+    AsyncToSync.__call__ = async_to_sync_call
+    SyncToAsync.__call__ = sync_to_async_call
+    _patched.add("asgiref")

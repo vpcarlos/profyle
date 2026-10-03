@@ -10,16 +10,18 @@ import socket
 import sqlite3
 import statistics
 import time
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from typing import Any
 from urllib.parse import urlsplit
 
 from profyle.application import replay
 from profyle.application.analysis.digest import (
+    DIGEST_VERSION,
     build_digest,
     compare_digests,
     get_call_details,
     get_function_source,
+    headline,
     render_digest,
 )
 from profyle.application.response_fingerprint import VERDICT_TEXT
@@ -33,26 +35,42 @@ class TraceNotFound(LookupError):
     pass
 
 
-def _load(repo: TraceRepository, trace_id: int) -> Trace:
-    trace = repo.get_trace_by_id(trace_id)
-    if not trace or not trace.data:
+def _load(repo: TraceRepository, trace_id: int, include_data: bool = True) -> Trace:
+    trace = repo.get_trace_by_id(trace_id, include_data=include_data)
+    if not trace or (include_data and not trace.data):
         raise TraceNotFound(f"Trace {trace_id} not found")
     return trace
 
 
-_DIGEST_CACHE: OrderedDict[tuple[str, str], dict[str, Any]] = OrderedDict()
-_DIGEST_CACHE_SIZE = 32
+def _digest(repo: TraceRepository, trace: Trace) -> dict[str, Any]:
+    """The stored digest of a trace, built and stored on first use.
+
+    Digests are computed on the reading side (here, or ahead of time by
+    precompute_digests), never in the app's request path."""
+    trace_id = int(trace.id)
+    stored = repo.get_digest(trace_id)
+    if stored and stored.get("version") == DIGEST_VERSION:
+        return stored
+    data = trace.data
+    if data is None:
+        full = repo.get_trace_by_id(trace_id)
+        data = full.data if full else None
+    if not data:
+        raise TraceNotFound(f"Trace {trace_id} has no data")
+    digest = build_digest(data)
+    repo.store_digest(trace_id, digest, headline(digest))
+    return digest
 
 
-def _digest(trace: Trace) -> dict[str, Any]:
-    # Keyed by id + timestamp so a deleted/recreated id never returns a stale digest.
-    key = (str(trace.id), trace.timestamp)
-    if key not in _DIGEST_CACHE:
-        _DIGEST_CACHE[key] = build_digest(trace.data)
-        if len(_DIGEST_CACHE) > _DIGEST_CACHE_SIZE:
-            _DIGEST_CACHE.popitem(last=False)
-    _DIGEST_CACHE.move_to_end(key)
-    return _DIGEST_CACHE[key]
+def precompute_digests(repo: TraceRepository, limit: int = 50) -> int:
+    """Build missing digests for the newest traces; returns how many were built."""
+    built = 0
+    for trace_id in repo.trace_ids_without_digest(limit):
+        trace = repo.get_trace_by_id(trace_id)
+        if trace and trace.data:
+            _digest(repo, trace)
+            built += 1
+    return built
 
 
 def list_traces(
@@ -67,9 +85,14 @@ def list_traces(
     traces = [t for t in traces if t.duration / 1000 >= min_duration_ms][:limit]
     if not traces:
         return "No matching traces. " + _empty_db_hint()
-    rows = ["| id | request | duration (ms) | recorded at |", "|---|---|---|---|"]
+    rows = [
+        "| id | request | duration (ms) | recorded at | main finding |",
+        "|---|---|---|---|---|",
+    ]
     rows += [
-        f"| {t.id} | {t.name} | {round(t.duration / 1000, 2)} | {t.timestamp} |" for t in traces
+        f"| {t.id} | {t.name} | {round(t.duration / 1000, 2)} | {t.timestamp} "
+        f"| {t.headline or 'not analyzed yet'} |"
+        for t in traces
     ]
     return "\n".join(rows)
 
@@ -77,8 +100,11 @@ def list_traces(
 def slowest_endpoints(repo: TraceRepository, limit: int = 15) -> str:
     """Aggregate recorded traces per request name: count, median, p95 and max duration."""
     groups: dict[str, list[float]] = defaultdict(list)
+    traces_by_name: dict[str, list[Trace]] = defaultdict(list)
     for trace in repo.get_all_traces():
-        groups[trace.name.split("?")[0]].append(trace.duration / 1000)
+        name = trace.name.split("?")[0]
+        groups[name].append(trace.duration / 1000)
+        traces_by_name[name].append(trace)
     if not groups:
         return "No traces recorded yet. " + _empty_db_hint()
 
@@ -87,18 +113,28 @@ def slowest_endpoints(repo: TraceRepository, limit: int = 15) -> str:
         return ordered[min(len(ordered) - 1, int(round(0.95 * (len(ordered) - 1))))]
 
     rows = sorted(groups.items(), key=lambda item: p95(item[1]), reverse=True)[:limit]
-    out = ["| request | traces | median ms | p95 ms | max ms |", "|---|---|---|---|---|"]
+    out = [
+        "| request | traces | median ms | p95 ms | max ms | typical trace: main finding |",
+        "|---|---|---|---|---|---|",
+    ]
     out += [
         f"| {name} | {len(d)} | {round(statistics.median(d), 2)} | {round(p95(d), 2)} | "
-        f"{round(max(d), 2)} |"
+        f"{round(max(d), 2)} | {_typical_finding(traces_by_name[name], d)} |"
         for name, d in rows
     ]
     return "\n".join(out)
 
 
+def _typical_finding(traces: list[Trace], durations_ms: list[float]) -> str:
+    # The trace closest to the median: the slowest one is often a cold first request.
+    median = statistics.median(durations_ms)
+    typical = min(traces, key=lambda t: abs(t.duration / 1000 - median))
+    return f"#{typical.id}: {typical.headline or 'not analyzed yet'}"
+
+
 def analyze_trace(repo: TraceRepository, trace_id: int) -> str:
-    trace = _load(repo, trace_id)
-    digest = render_digest(_digest(trace), name=f"#{trace.id} {trace.name}")
+    trace = _load(repo, trace_id, include_data=False)
+    digest = render_digest(_digest(repo, trace), name=f"#{trace.id} {trace.name}")
     return digest.replace("\n", "\n" + _request_summary(trace) + "\n", 1)
 
 
@@ -117,8 +153,9 @@ def call_details(repo: TraceRepository, trace_id: int, function: str) -> str:
 
 
 def compare_traces(repo: TraceRepository, before_id: int, after_id: int) -> str:
-    before, after = _load(repo, before_id), _load(repo, after_id)
-    diff = compare_digests(_digest(before), _digest(after))
+    before = _load(repo, before_id, include_data=False)
+    after = _load(repo, after_id, include_data=False)
+    diff = compare_digests(_digest(repo, before), _digest(repo, after))
     verdict = compare_responses(_fingerprint_of(before), _fingerprint_of(after))
     diff = {
         "response_body": VERDICT_TEXT[verdict],

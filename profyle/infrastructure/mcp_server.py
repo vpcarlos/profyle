@@ -6,6 +6,9 @@ Claude Code already has the project's source open, so pairing it with these tool
 lets it go from "this endpoint is slow" to an actual code change in one session.
 """
 
+import threading
+import time
+
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
@@ -122,5 +125,18 @@ def replay_request(
     )
 
 
+def _precompute_digests_forever(interval: float = 5.0) -> None:
+    """Digest new traces in the background so listings show their main finding and
+    analysis is instant. Runs here, in the reader, never in the traced app."""
+    repo = _repo()
+    while True:
+        try:
+            toolkit.precompute_digests(repo, limit=20)
+        except Exception:  # never let a bad trace kill the server
+            pass
+        time.sleep(interval)
+
+
 def run() -> None:
+    threading.Thread(target=_precompute_digests_forever, daemon=True).start()
     server.run("stdio")
