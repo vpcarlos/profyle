@@ -80,13 +80,6 @@ your teammates only need `pip install profyle`. To remove everything again:
    traces: 7× faster, same status, same response body.
 </details>
 
-### What you don't have to do
-- ✗ Edit your app or add a middleware: `profyle run` adds tracing when the app starts.
-- ✗ Write configuration or set environment variables: traces go to
-  `<project>/.profyle/`, which git ignores automatically.
-- ✗ Read a flamegraph of thousands of frames: each trace has a one-line main finding.
-- ✗ Benchmark by hand: the same request is replayed and compared before and after.
-
 ### Prefer to look yourself?
 Start your dev server through `profyle run` and every request tells you where its time
 went:
