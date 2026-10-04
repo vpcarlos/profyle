@@ -19,7 +19,7 @@
 ### Bottlenecks
 With Profyle you can easily detect where in your code you have a bottleneck, simply analyze the trace and see what function or operation is taking most of the execution time of the request
 
-### Enhance performace
+### Enhance performance
 Analyze the traces and decide which parts of your code should be improved
 
 
@@ -35,6 +35,16 @@ $ pip install profyle
 
 </div>
 
+That's all you need: there are no extras to choose from. This single package includes:
+* The `profyle` CLI and the web UI to browse traces (built on FastAPI and Uvicorn, which are installed with it)
+* <a href="https://github.com/gaogaotiantian/viztracer" class="external-link" target="_blank">VizTracer</a>, which records the traces
+* The middlewares for FastAPI, Flask and Django
+
+Profyle doesn't install Flask or Django. Its middleware uses the one your project already has.
+
+> **Note**
+> Install Profyle in the same Python environment as your app. Traces are stored in a SQLite database inside the installed `profyle` package, so `profyle start` only shows the traces recorded by apps running in that environment.
+
 ## Example
 
 ### 1. Implement
@@ -43,9 +53,9 @@ In order to track all your API requests you must implement the <code>ProfyleMidd
 | Attribute | Required | Default | Description | ENV Variable |
 | --- | --- | --- | --- | --- |
 | `enabled` | No | `True` | Enable or disable Profyle | `PROFYLE_ENABLED` |
-| `pattern` | No | `None` | 0nly trace those paths that match with [pattern](https://en.wikipedia.org/wiki/Glob_(programming))  | `PROFYLE_PATTERN` |
+| `pattern` | No | `None` | Only trace those paths that match with [pattern](https://en.wikipedia.org/wiki/Glob_(programming))  | `PROFYLE_PATTERN` |
 | `max_stack_depth` | No | `-1` | Limit maximum stack trace depth | `PROFYLE_MAX_STACK_DEPTH` |
-| `min_duration` | No | `0` (milisecons) | Only record traces with a greather duration than the limit. | `PROFYLE_MIN_DURATION` |
+| `min_duration` | No | `0` (milliseconds) | Only record traces with a greater duration than the limit. | `PROFYLE_MIN_DURATION` |
 
 
 <details markdown="1" open>
@@ -69,7 +79,7 @@ from fastapi import FastAPI
 from profyle.fastapi import ProfyleMiddleware
 
 app = FastAPI()
-# Trace all requests that match that start with /users 
+# Trace all requests that start with /users
 # with a minimum duration of 100ms and a maximum stack depth of 20
 app.add_middleware(
     ProfyleMiddleware,
@@ -104,6 +114,8 @@ def root():
 <details markdown="1">
 <summary>Django</summary>
 
+Django reads the options from your `settings.py` instead of environment variables.
+
 ```Python
 # settings.py
 
@@ -112,22 +124,26 @@ MIDDLEWARE = [
     "profyle.django.ProfyleMiddleware",
     ...
 ]
+
+# Optional
+PROFYLE_ENABLED = True
+PROFYLE_PATTERN = "/api/*"
+PROFYLE_MAX_STACK_DEPTH = 20
 ```
 </details>
 
 ### 2. Run
-* Run the web server:
+* Run the web server and open the URL it prints. By default it picks a free port. Use `--port` to set a fixed one:
 
 <div class="termy">
 
 ```console
 $ profyle start
 
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [28720]
 INFO:     Started server process [28722]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:38165 (Press CTRL+C to quit)
 ```
 
 </div>
@@ -143,7 +159,7 @@ INFO:     Application startup complete.
 * Super easy to use, no source code change for most features, no package dependency
 * Supports threading, multiprocessing, subprocess and async
 * Powerful front-end, able to render GB-level trace smoothly
-* Works on Linux/MacOS/Window
+* Works on Linux/MacOS/Windows
 
 ![Alt text](https://github.com/vpcarlos/profyle/blob/main/docs/img/trace1.png?raw=true "Trace1")
 
@@ -157,20 +173,18 @@ INFO:     Application startup complete.
 
 | Options | Type | Default | Description |
 | --- | --- | --- | --- |
-| --port | INTEGER | 0 | web server port |                                                                 
-| --host | TEXT | 127.0.0.1 | web server host |                                                                 
-                                                                  
+| --port | INTEGER | 0 | web server port (`0` picks a free port) |
+| --host | TEXT | 127.0.0.1 | web server host |
 
 <div class="termy">
 
 ```console
-$ profyle start --port 5432
+$ profyle start --port 8000
 
-INFO:     Uvicorn running on http://127.0.0.1:5432 (Press CTRL+C to quit)
-INFO:     Started reloader process [28720]
 INFO:     Started server process [28722]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 ```
 
 </div>
@@ -182,19 +196,20 @@ INFO:     Application startup complete.
 ```console
 $ profyle clean
 
-10 traces removed 
+10 records removed
 ```
 
 </div>
 
-### check
-* Check traces DB size
+### info
+* Show where the traces are stored and the traces DB size
 <div class="termy">
 
 ```console
-$ profyle check
+$ profyle info
 
-DB size: 30MB
+Project → /path/to/venv/lib/python3.11/site-packages/profyle
+DB size → 30.0 MB
 ```
 
 </div>
