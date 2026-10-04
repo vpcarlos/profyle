@@ -42,7 +42,8 @@ $ profyle init
 
 `profyle init` adds `.mcp.json` and `.claude/skills/fix-slow-endpoint/SKILL.md` to your
 project, so Claude Code gets the Profyle tools and knows how to use them. Commit them and
-your teammates only need `pip install profyle`.
+your teammates only need `pip install profyle`. To remove everything again:
+`profyle uninstall` then `pip uninstall profyle`.
 
 **2. Ask Claude Code**
 
@@ -430,6 +431,27 @@ $ profyle init
 Setting up Claude Code for /home/me/shop
   .mcp.json                                     created
   .claude/skills/fix-slow-endpoint/SKILL.md     created
+```
+
+</div>
+
+### uninstall
+* Remove Profyle from the project: the `profyle` entry in `.mcp.json` (other servers are
+  kept), the skill, and the traces in `.profyle/` (asks first; `--yes` to skip the
+  question, `--keep-traces` to keep them). Then `pip uninstall profyle`.
+<div class="termy">
+
+```console
+$ profyle uninstall
+Delete all traces in /home/me/shop/.profyle? [y/N] y
+Removing Profyle from /home/me/shop
+  .mcp.json                                     removed
+  .claude/skills/fix-slow-endpoint              removed
+  .profyle                                      removed
+
+Last step: `pip uninstall profyle` (or `uv remove profyle`, which also removes the
+dependencies it installed). If you installed the Claude Code plugin instead:
+`claude plugin uninstall profyle`.
 ```
 
 </div>

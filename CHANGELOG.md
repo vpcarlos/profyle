@@ -27,6 +27,8 @@ All notable changes to this project are documented here. The format follows
 - **`profyle init`**: sets up Claude Code for a project in one command (`.mcp.json` and
   the `fix-slow-endpoint` skill, both committable), so installing is
   `pip install profyle` + `profyle init`; the plugin remains an alternative.
+- **`profyle uninstall`**: removes what `init` added and the traces (after asking), so
+  removing Profyle is `profyle uninstall` + `pip uninstall profyle`.
 - **MCP server** (`profyle mcp`, included; the `profyle[mcp]` extra still works) with the tools `doctor`,
   `slowest_endpoints`, `list_traces`, `analyze_trace`, `get_call_details`,
   `get_function_source`, `replay_request` and `compare_traces`.

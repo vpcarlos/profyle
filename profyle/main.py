@@ -137,6 +137,33 @@ def init(args: argparse.Namespace) -> None:
     )
 
 
+def uninstall(args: argparse.Namespace) -> None:
+    from profyle.infrastructure.claude_code import uninstall_project
+    from profyle.settings import DATA_DIR, find_project_root
+
+    project_dir = find_project_root(os.getcwd())
+    remove_traces = not args.keep_traces
+    if remove_traces and os.path.isdir(os.path.join(project_dir, DATA_DIR)) and not args.yes:
+        remove_traces = _confirm(f"Delete all traces in {os.path.join(project_dir, DATA_DIR)}?")
+    print(f"Removing Profyle from {project_dir}")
+    for path, status in uninstall_project(project_dir, remove_traces):
+        print(f"  {path:<45} {status}")
+    if os.getenv("PROFYLE_DB"):
+        print(f"\nPROFYLE_DB points to {os.environ['PROFYLE_DB']}: delete it yourself if needed.")
+    print(
+        "\nLast step: `pip uninstall profyle` (or `uv remove profyle`, which also removes the\n"
+        "dependencies it installed). If you installed the Claude Code plugin instead:\n"
+        "`claude plugin uninstall profyle`."
+    )
+
+
+def _confirm(question: str) -> bool:
+    if not sys.stdin.isatty():
+        print(f"{question} Not asked (no terminal): traces kept, pass --yes to delete them.")
+        return False
+    return input(f"{question} [y/N] ").strip().lower() in ("y", "yes")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="profyle", description="Profyle CLI")
     commands = parser.add_subparsers(title="commands")
@@ -147,6 +174,11 @@ def build_parser() -> argparse.ArgumentParser:
         return sub
 
     command("init", init, "Set up Claude Code for this project (MCP server and skill)")
+    remove = command(
+        "uninstall", uninstall, "Remove Profyle from this project: Claude Code setup and traces"
+    )
+    remove.add_argument("-y", "--yes", action="store_true", help="Delete traces without asking")
+    remove.add_argument("--keep-traces", action="store_true", help="Keep the traces in .profyle")
 
     run = command(
         "run",
