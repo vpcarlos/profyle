@@ -108,11 +108,13 @@ jobs:
       - name: Install the wheel in a clean environment and smoke test it
         run: |
           uv venv /tmp/smoke
-          uv pip install --python /tmp/smoke/bin/python "$(ls dist/*.whl)[mcp,flask,django]"
+          uv pip install --python /tmp/smoke/bin/python "$(ls dist/*.whl)[flask,django]"
           mkdir -p /tmp/project && cd /tmp/project && touch pyproject.toml
           /tmp/smoke/bin/python -c "import profyle.fastapi, profyle.flask, profyle.django, profyle.infrastructure.mcp_server"
           /tmp/smoke/bin/profyle --help
           /tmp/smoke/bin/profyle doctor
+          /tmp/smoke/bin/profyle init
+          test -f .mcp.json && test -f .claude/skills/fix-slow-endpoint/SKILL.md
           test -f .profyle/.gitignore
           # `profyle run` must load its bootstrap from the installed wheel
           /tmp/smoke/bin/profyle run /tmp/smoke/bin/python -c "import profyle.infrastructure.autoinstrument as a; assert a._installed"

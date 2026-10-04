@@ -24,7 +24,10 @@ All notable changes to this project are documented here. The format follows
 - **Claude Code plugin** (`claude-plugin/`, installable from this repository's
   marketplace) with the `fix-slow-endpoint` skill: diagnose a slow endpoint from its
   traces, fix it, replay the request and verify the result.
-- **MCP server** (`profyle mcp`, extra `profyle[mcp]`) with the tools `doctor`,
+- **`profyle init`**: sets up Claude Code for a project in one command (`.mcp.json` and
+  the `fix-slow-endpoint` skill, both committable), so installing is
+  `pip install profyle` + `profyle init`; the plugin remains an alternative.
+- **MCP server** (`profyle mcp`, included; the `profyle[mcp]` extra still works) with the tools `doctor`,
   `slowest_endpoints`, `list_traces`, `analyze_trace`, `get_call_details`,
   `get_function_source`, `replay_request` and `compare_traces`.
 - **Trace digest**: a few-KB summary of a trace (critical path per thread, self time,
@@ -43,7 +46,7 @@ All notable changes to this project are documented here. The format follows
 - Traces are stored in `<project>/.profyle/profile.db` (git-ignored automatically)
   instead of inside the installed package. Set `PROFYLE_DB` to choose another file.
 - Python 3.10 or newer is required. Minimum versions: VizTracer 1.0, FastAPI 0.115,
-  pydantic 2, Flask 3.0 (for `profyle[flask]`), MCP 2.0 (for `profyle[mcp]`).
+  pydantic 2, MCP 2.0, Flask 3.0 (for `profyle[flask]`).
 - The CLI no longer depends on Typer and Rich.
 - `profyle.fastapi` and `profyle.flask` are now aliases of the generic ASGI and WSGI
   middlewares; middleware settings default to `None` (unset) so the configuration

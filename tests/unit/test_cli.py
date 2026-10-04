@@ -131,6 +131,3 @@ def test_mcp(monkeypatch, capsys):
     monkeypatch.setattr(mcp_server, "run", lambda: ran.append(True))
     run_cli(monkeypatch, capsys, "mcp")
     assert ran == [True]
-
-    monkeypatch.setitem(sys.modules, "profyle.infrastructure.mcp_server", None)
-    assert "pip install 'profyle[mcp]'" in run_cli(monkeypatch, capsys, "mcp")

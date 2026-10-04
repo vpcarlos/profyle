@@ -36,6 +36,8 @@ keywords = [
 dependencies = [
     "fastapi>=0.115.0",
     "jinja2>=3.1.2",
+    # MCP server so Claude Code / Claude Desktop can query traces (`profyle mcp`)
+    "mcp>=2.0.0",
     "pydantic>=2.0",
     "tomli>=1.1.0; python_version < '3.11'",
     "uvicorn[standard]>=0.39.0",
@@ -64,10 +66,8 @@ fastapi = [
 tornado = [
     "tornado>=6.1",
 ]
-# MCP server so Claude Code / Claude Desktop can query traces (`profyle mcp`)
-mcp = [
-    "mcp>=2.0.0",
-]
+# Kept so `pip install "profyle[mcp]"` keeps working; the MCP server is now included.
+mcp = []
 
 [dependency-groups]
 dev = [

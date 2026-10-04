@@ -116,12 +116,25 @@ def clean(args: argparse.Namespace) -> None:
 
 
 def mcp(args: argparse.Namespace) -> None:
-    try:
-        from profyle.infrastructure.mcp_server import run as run_mcp_server
-    except ImportError:
-        print("The MCP server needs the 'mcp' extra: pip install 'profyle[mcp]'")
-        return
+    from profyle.infrastructure.mcp_server import run as run_mcp_server
+
     run_mcp_server()
+
+
+def init(args: argparse.Namespace) -> None:
+    from profyle.infrastructure.claude_code import init_project
+    from profyle.settings import find_project_root
+
+    project_dir = find_project_root(os.getcwd())
+    print(f"Setting up Claude Code for {project_dir}")
+    for path, status in init_project(project_dir):
+        print(f"  {path:<45} {status}")
+    print(
+        "\nCommit these files so your team gets the same setup.\n"
+        "Next: start your app with `profyle run <command>` (for example\n"
+        "`profyle run uvicorn main:app --reload`), open Claude Code in this project, approve\n"
+        "the profyle MCP server when asked, and ask about a slow endpoint."
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -132,6 +145,8 @@ def build_parser() -> argparse.ArgumentParser:
         sub = commands.add_parser(name, help=help)
         sub.set_defaults(handler=handler)
         return sub
+
+    command("init", init, "Set up Claude Code for this project (MCP server and skill)")
 
     run = command(
         "run",

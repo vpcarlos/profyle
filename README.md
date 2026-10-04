@@ -36,10 +36,13 @@ request.
 **1. Install, once**
 
 ```console
-$ pip install "profyle[mcp]"
-$ claude plugin marketplace add vpcarlos/profyle
-$ claude plugin install profyle@profyle
+$ pip install profyle
+$ profyle init
 ```
+
+`profyle init` adds `.mcp.json` and `.claude/skills/fix-slow-endpoint/SKILL.md` to your
+project, so Claude Code gets the Profyle tools and knows how to use them. Commit them and
+your teammates only need `pip install profyle`.
 
 **2. Ask Claude Code**
 
@@ -99,10 +102,15 @@ Then `profyle start` lets you browse the traces in Perfetto.
 > source code and request data, so do not enable it in production. See
 > [SECURITY.md](SECURITY.md).
 
-Requires Python 3.10+. The plugin starts `profyle` from your `PATH`; if that is not your
-project's environment, set `PROFYLE_COMMAND=/path/to/.venv/bin/profyle`. Without the
-plugin, register just the MCP server from your project directory:
-`claude mcp add profyle -- profyle mcp`.
+Requires Python 3.10+. `profyle init` starts the MCP server with `uv run` or
+`poetry run` in projects that use them, and with `profyle` from your `PATH` otherwise:
+open Claude Code with your project's environment activated, or edit the command in
+`.mcp.json`.
+
+Using Claude Code across many projects? Install the plugin once instead of running
+`profyle init` in each:
+`claude plugin marketplace add vpcarlos/profyle && claude plugin install profyle@profyle`
+(set `PROFYLE_COMMAND=/path/to/.venv/bin/profyle` if `profyle` is not on your `PATH`).
 
 ## Add tracing to your app
 
@@ -408,6 +416,20 @@ $ profyle doctor
 ```console
 $ profyle replay 42 --times 3
 $ profyle doctor
+```
+
+</div>
+
+### init
+* Set up Claude Code for the project: register the MCP server in `.mcp.json` (other
+  servers are kept) and add the `fix-slow-endpoint` skill. Running it again updates them.
+<div class="termy">
+
+```console
+$ profyle init
+Setting up Claude Code for /home/me/shop
+  .mcp.json                                     created
+  .claude/skills/fix-slow-endpoint/SKILL.md     created
 ```
 
 </div>

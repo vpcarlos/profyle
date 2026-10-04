@@ -63,7 +63,8 @@ the result:
 | `profyle/infrastructure/mcp_server.py` | MCP server (`profyle mcp`) |
 | `profyle/main.py` | The `profyle` command |
 | `profyle/infrastructure/api/`, `profyle/infrastructure/web/` | The trace viewer (`profyle start`) |
-| `claude-plugin/` | Claude Code plugin: MCP server config and the `fix-slow-endpoint` skill |
+| `profyle/claude/SKILL.md`, `profyle/infrastructure/claude_code.py` | The `fix-slow-endpoint` skill and `profyle init`, which installs it with the MCP server into a project |
+| `claude-plugin/` | Claude Code plugin: MCP server config and a copy of the skill |
 | `examples/` | One app per framework with an N+1 query, used by the integration tests |
 | `tests/unit/` | Test suite, mirroring the package |
 
@@ -88,7 +89,8 @@ the result:
 - **Privacy:** traces contain source code, arguments and request data. Do not store
   credentials or response bodies, and keep replays local by default.
 - **MCP tools and the skill:** if you add or change an MCP tool, update
-  `claude-plugin/skills/fix-slow-endpoint/SKILL.md` and the tool table in `README.md`.
+  `profyle/claude/SKILL.md` (copy it to `claude-plugin/skills/fix-slow-endpoint/SKILL.md`;
+  a test checks they match) and the tool table in `README.md`.
   You can try the plugin locally with `claude --plugin-dir ./claude-plugin`.
 - **Changelog:** add a line under "Unreleased" in [CHANGELOG.md](CHANGELOG.md) for
   user-visible changes.
