@@ -149,7 +149,7 @@ def test_doctor_warns_about_traces_in_the_old_location(tmp_path, monkeypatch):
         db.execute("INSERT INTO traces VALUES (1)")
     monkeypatch.setattr(settings, "get_legacy_db_path", lambda: str(legacy))
 
-    assert "Found 1 traces in the old location" in tools.doctor(InMemoryTraceRepository())
+    assert "Found 1 trace in the old location" in tools.doctor(InMemoryTraceRepository())
 
     legacy.write_text("not a database")
     assert "old location" not in tools.doctor(InMemoryTraceRepository())

@@ -48,7 +48,7 @@ def _database_check(traces: list[Trace]) -> Check:
         )
     newest = traces[0]
     return True, (
-        f"Database {db_path} ({source}): {len(traces)} traces, newest #{newest.id} "
+        f"Database {db_path} ({source}): {_count(len(traces), 'trace')}, newest #{newest.id} "
         f"{newest.name} at {newest.timestamp} UTC."
     )
 
@@ -62,8 +62,8 @@ def _old_database_checks() -> list[Check]:
     return [
         (
             False,
-            f"Found {legacy} traces in the old location {legacy_path}: the app is probably "
-            "running an older Profyle. Upgrade it in the app's environment and restart.",
+            f"Found {_count(legacy, 'trace')} in the old location {legacy_path}: the app is "
+            "probably running an older Profyle. Upgrade it in the app's environment and restart.",
         )
     ]
 
@@ -157,3 +157,7 @@ def _app_reachable(base_url: str) -> Check:
             "e.g. `profyle run uvicorn main:app --reload`, so requests can be "
             "replayed."
         )
+
+
+def _count(number: int, noun: str) -> str:
+    return f"{number} {noun}" + ("" if number == 1 else "s")

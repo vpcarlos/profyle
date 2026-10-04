@@ -203,14 +203,16 @@ app = ProfyleMiddleware(app)
 An explicit middleware takes precedence over `profyle run`, so you can keep it and
 still use `profyle run`.
 
-VizTracer records one trace at a time per process. A request that arrives while another
-one is being traced is served normally but not traced (the console says so), and work
-done by overlapping requests on the same thread can show up in the trace being
-recorded. Profyle is meant for requests you make one at a time while developing.
-Traces are saved in a background thread after the response is sent, so the request
-does not wait for it; a request arriving while the previous trace is still being saved
-waits a moment for it. WSGI apps are traced until the response body has been sent, so
-streamed responses are traced too.
+### What gets traced
+- **The whole request:** the middlewares, your view, and the code your framework runs in
+  worker threads (sync FastAPI endpoints, Django under ASGI, `run_in_executor`).
+  Responses streamed by WSGI apps (Flask...) are traced until the body has been sent.
+- **One request at a time:** VizTracer records one trace per process. A request that
+  arrives while another one is traced is served normally but not traced (the console
+  says so). Profyle is meant for requests you make one at a time while developing.
+- **No waiting:** a trace is saved in a background thread after the response is sent;
+  a request arriving while the previous trace is still being saved waits a moment for
+  it.
 
 ## Configuration
 Every integration reads the same settings. Each one comes from, in order of priority:
@@ -292,8 +294,7 @@ Each trace keeps a fingerprint of the response body, never the body itself: a ha
 canonical body and, for JSON, a hash of its structure (keys, value types, list lengths).
 Replays and `compare_traces` report the body as **identical**, **same structure, values
 differ** (e.g. timestamps) or **DIFFERENT**, so a "fix" that returns less data is caught.
-FastAPI/Starlette and Django record it on every request; with Flask the first replay
-records it.
+Every integration records it, for bodies up to 2 MB.
 
 ### Replay safety
 - Profyle stores the request behind each trace (method, path, headers, body up to 64 KB,
@@ -314,132 +315,51 @@ $ profyle doctor
 ### Trace database
 Traces are stored in `<project>/.profyle/profile.db`, where `<project>` is the closest
 parent of the working directory with a `pyproject.toml`, `setup.py`, `manage.py`,
-`requirements.txt` or `.git`. The app, `profyle start`, `profyle mcp` and the plugin all
-find the same file. Set `PROFYLE_DB=/path/to/profile.db` to use another location.
+`requirements.txt` or `.git`. The app, the CLI and the MCP server all find the same
+file. Set `PROFYLE_DB=/path/to/profile.db` to use another location.
 Versions before 0.4 stored traces inside the installed package; `profyle doctor` warns if
 it still finds traces there.
 
-## CLI Commands
-### run
-* Run the command that starts your app with tracing, no code changes
+## CLI commands
 
-<div class="termy">
+| Command | What it does |
+|---|---|
+| `profyle init` | Set up Claude Code for the project: the MCP server in `.mcp.json` (other servers are kept) and the `fix-slow-endpoint` skill. Running it again updates them. |
+| `profyle run <command>` | Run the command that starts your app, with tracing and no code changes |
+| `profyle doctor` | Check that traces are recorded, can be replayed, and the app is running |
+| `profyle analyze [id]` | Print the bottleneck digest of a trace (the newest one by default) |
+| `profyle replay <id>` | Send the request of a trace again and report the new traces |
+| `profyle start` | Browse the traces in the web UI (`--port`, `--host`; default `127.0.0.1` on a free port) |
+| `profyle info` | Where the traces are stored and how much space they use |
+| `profyle clean` | Delete all traces |
+| `profyle uninstall` | Remove Profyle from the project (see below) |
+| `profyle mcp` | Run the MCP server over stdio (Claude Code starts it for you) |
 
-```console
-$ profyle run uvicorn main:app --reload
-```
+`profyle replay` options:
 
-</div>
-
-### start
-* Start the web server and view profile traces
-
-| Options | Type | Default | Description |
-| --- | --- | --- | --- |
-| --port | INTEGER | 0 | web server port |                                                                 
-| --host | TEXT | 127.0.0.1 | web server host |                                                                 
-                                                                  
-
-<div class="termy">
-
-```console
-$ profyle start --port 5432
-
-INFO:     Uvicorn running on http://127.0.0.1:5432 (Press CTRL+C to quit)
-INFO:     Started reloader process [28720]
-INFO:     Started server process [28722]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-```
-
-</div>
-
-### clean
-* Delete all profile traces
-<div class="termy">
-
-```console
-$ profyle clean
-
-10 traces removed 
-```
-
-</div>
-
-### info
-* Show the traces DB location and size
-<div class="termy">
-
-```console
-$ profyle info
-
-DB size → 30.0 MB
-```
-
-</div>
-
-### analyze
-* Print the LLM-ready digest of a trace (defaults to the newest one)
-<div class="termy">
-
-```console
-$ profyle analyze 42
-```
-
-</div>
-
-### doctor
-* Check that traces are recorded, can be replayed and the app is running
-<div class="termy">
+| Option | Default | Description |
+|---|---|---|
+| `--times N` | 1 | Number of replays (up to 10) |
+| `--base-url URL` | recorded host | Where the app listens, e.g. `http://127.0.0.1:8000` |
+| `-H, --header 'Name: value'` | | Extra header, repeatable, e.g. `'Authorization: Bearer x'` |
+| `--allow-unsafe` | | Allow POST/PUT/PATCH/DELETE |
 
 ```console
 $ profyle doctor
-
-✓ Database /my/project/.profyle/profile.db: 12 traces, newest #12 GET /orders
+✓ Database /home/me/shop/.profyle/profile.db (project root found from the working directory): 12 traces, newest #12 GET /orders at 2026-10-03 21:55:30 UTC.
+• App: FastAPI traced via `profyle run` (pid 4242, running; Profyle 0.4.0, Python 3.12.11).
+• Configuration: enabled = True (default); pattern = None (default); ...
 ✓ Requests are recorded, so they can be replayed.
-✓ The app is running at http://localhost:8000.
+✓ The app is running at http://127.0.0.1:8000.
+• Replay: replay_allow_remote = False (default).
+
+Ready.
 ```
 
-</div>
-
-### replay
-* Send the request of a trace again (local app) and record a new trace
-
-| Options | Type | Default | Description |
-| --- | --- | --- | --- |
-| --times | INTEGER | 1 | Number of replays |
-| --base-url | TEXT | recorded host | Where the app listens, e.g. `http://127.0.0.1:8000` |
-| -H, --header | TEXT | | Extra header, repeatable, e.g. `'Authorization: Bearer x'` |
-| --allow-unsafe | FLAG | | Allow POST/PUT/PATCH/DELETE |
-
-<div class="termy">
-
-```console
-$ profyle replay 42 --times 3
-$ profyle doctor
-```
-
-</div>
-
-### init
-* Set up Claude Code for the project: register the MCP server in `.mcp.json` (other
-  servers are kept) and add the `fix-slow-endpoint` skill. Running it again updates them.
-<div class="termy">
-
-```console
-$ profyle init
-Setting up Claude Code for /home/me/shop
-  .mcp.json                                     created
-  .claude/skills/fix-slow-endpoint/SKILL.md     created
-```
-
-</div>
-
-### uninstall
-* Remove Profyle from the project: the `profyle` entry in `.mcp.json` (other servers are
-  kept), the skill, and the traces in `.profyle/` (asks first; `--yes` to skip the
-  question, `--keep-traces` to keep them). Then `pip uninstall profyle`.
-<div class="termy">
+### Uninstall
+`profyle uninstall` removes the `profyle` entry from `.mcp.json` (other servers are
+kept), the skill, and the traces in `.profyle/`. It asks before deleting traces: pass
+`--yes` to skip the question or `--keep-traces` to keep them. Then remove the package:
 
 ```console
 $ profyle uninstall
@@ -448,24 +368,22 @@ Removing Profyle from /home/me/shop
   .mcp.json                                     removed
   .claude/skills/fix-slow-endpoint              removed
   .profyle                                      removed
+$ pip uninstall profyle     # or `uv remove profyle`, which also removes its dependencies
+```
 
-Last step: `pip uninstall profyle` (or `uv remove profyle`, which also removes the
-dependencies it installed). If you installed the Claude Code plugin instead:
+If you installed the Claude Code plugin instead of running `profyle init`:
 `claude plugin uninstall profyle`.
-```
 
-</div>
-
-### mcp
-* Run the MCP server over stdio (for Claude Code / Claude Desktop)
-<div class="termy">
-
-```console
-$ profyle mcp
-```
-
-</div>
-
+## Limitations
+- One request is traced at a time per process (see [What gets traced](#what-gets-traced)).
+- Tracing adds about 1 µs per function call: functions called very often look slower
+  than they are untraced. Waits (sleep, network, database) are measured accurately.
+- A WSGI response body that is never read (some test clients) keeps its trace open
+  until the next traced request or until the process exits.
+- VizTracer 1.1.1 has two thread-safety bugs that can crash the process. Profyle works
+  around both, but one remains possible on Python 3.12+ when another thread is inside a
+  slow `__repr__` (for example one that queries a database) at the moment a trace ends.
+  Details in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Contributing
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the development
