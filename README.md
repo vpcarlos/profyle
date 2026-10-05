@@ -26,30 +26,29 @@
 </a>
 </p>
 
-Profyle traces the requests of your **FastAPI, Flask, Django or Tornado** app with
-[VizTracer](https://github.com/gaogaotiantian/viztracer) and gives Claude Code what it
-needs to find the bottleneck, fix your code and **prove** the fix by replaying the same
-request.
+Profyle traces the requests of your **FastAPI, Flask, Django or Tornado** app and gives
+Claude Code what it needs to find the bottleneck, fix your code and **prove** the fix by
+replaying the same request.
 
-## Three steps
+## Quick start
 
-**1. Install, once**
+### 1. Install, once per project
 
 ```console
 $ pip install profyle
 $ profyle init
 ```
 
-`profyle init` adds `.mcp.json` and `.claude/skills/fix-slow-endpoint/SKILL.md` to your
-project, so Claude Code gets the Profyle tools and knows how to use them. Commit them and
-your teammates only need `pip install profyle`. To remove everything again:
-`profyle uninstall` then `pip uninstall profyle`.
+`profyle init` connects Claude Code to Profyle in this project. Commit the two files it
+adds (`.mcp.json` and `.claude/skills/`) and your teammates only need `pip install profyle`.
 
-**2. Ask Claude Code**
+### 2. Ask Claude Code
 
 > GET /orders is slow, can you fix it?
 
-**3. Get a verified fix**
+You don't have to start anything first: Claude starts your app with tracing if needed.
+
+### 3. Get a measured, verified fix
 
 > `GET /orders` now takes about **17 ms** warm, down from about **120 ms**.
 >
@@ -80,8 +79,16 @@ your teammates only need `pip install profyle`. To remove everything again:
    traces: 7× faster, same status, same response body.
 </details>
 
-### Prefer to look yourself?
-Start your dev server through `profyle run` and every request tells you where its time
+> [!WARNING]
+> Profyle is a **development tool**. Tracing slows requests down and traces contain
+> source code and request data, so do not enable it in production. See
+> [SECURITY.md](SECURITY.md).
+
+---
+
+## Without Claude Code
+
+Start your dev server through `profyle run`, and every request tells you where its time
 went:
 
 ```console
@@ -89,22 +96,31 @@ $ profyle run uvicorn main:app --reload
 profyle ▸ GET /orders 123.8 ms · #2 · repeated: list_orders → get_customer ×50 (87.1%)
 ```
 
-Then `profyle start` lets you browse the traces in Perfetto.
+Then dig into any trace:
 
-> [!WARNING]
-> Profyle is a **development tool**. Tracing slows requests down and traces contain
-> source code and request data, so do not enable it in production. See
-> [SECURITY.md](SECURITY.md).
+```console
+$ profyle start           # browse the traces in a web UI, with Perfetto
+$ profyle analyze 2       # the bottleneck digest of trace #2
+$ profyle replay 2        # send the same request again and compare
+```
 
-Requires Python 3.10+. `profyle init` starts the MCP server with `uv run` or
-`poetry run` in projects that use them, and with `profyle` from your `PATH` otherwise:
-open Claude Code with your project's environment activated, or edit the command in
-`.mcp.json`.
+---
 
-Using Claude Code across many projects? Install the plugin once instead of running
-`profyle init` in each:
-`claude plugin marketplace add vpcarlos/profyle && claude plugin install profyle@profyle`
-(set `PROFYLE_COMMAND=/path/to/.venv/bin/profyle` if `profyle` is not on your `PATH`).
+## Good to know
+
+- **Requirements:** Python 3.10+.
+- **Which environment Claude uses:** `profyle init` starts the MCP server with `uv run` or
+  `poetry run` in projects that use them, and with `profyle` from your `PATH` otherwise.
+  In that case open Claude Code with your project's environment activated, or edit the
+  command in `.mcp.json`.
+- **Many projects?** Install the Claude Code plugin once instead of running `profyle init`
+  in each: `claude plugin marketplace add vpcarlos/profyle && claude plugin install
+  profyle@profyle` (set `PROFYLE_COMMAND=/path/to/.venv/bin/profyle` if `profyle` is not
+  on your `PATH`).
+- **Remove it:** `profyle uninstall`, then `pip uninstall profyle` (see
+  [Uninstall](#uninstall)).
+
+---
 
 ## Add tracing to your app
 
@@ -297,13 +313,6 @@ Every integration records it, for bodies up to 2 MB.
 - Only local hosts are replayed unless `replay_allow_remote` is on.
 - `POST`/`PUT`/`PATCH`/`DELETE` are only replayed with explicit permission
   (`--allow-unsafe` / `allow_unsafe_method`); the skill asks you first.
-
-### Without Claude Code
-```console
-$ profyle analyze 42 | claude -p "Find the bottleneck and propose a fix"
-$ profyle replay 42 --times 3
-$ profyle doctor
-```
 
 ### Trace database
 Traces are stored in `<project>/.profyle/profile.db`, where `<project>` is the closest
