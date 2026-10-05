@@ -69,7 +69,7 @@ def _write(path: str, text: str) -> str:
     else:
         status = "created"
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
     return status
 
@@ -107,7 +107,7 @@ def _unregister_mcp_server(project_dir: str) -> str:
     if not servers and set(config) == {"mcpServers"}:
         os.remove(path)
         return "removed"
-    with open(path, "w", encoding="utf-8") as f:
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps(config, indent=2) + "\n")
     return "profyle server removed, other servers kept"
 

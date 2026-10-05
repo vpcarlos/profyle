@@ -33,7 +33,7 @@ def test_display_path(monkeypatch, tmp_path):
 
 
 def test_say_falls_back_to_ascii(monkeypatch):
-    stream = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
+    stream = io.TextIOWrapper(io.BytesIO(), encoding="ascii", newline="\n")
     monkeypatch.setattr(sys, "stderr", stream)
 
     console.say("GET /a → b")

@@ -121,8 +121,10 @@ def _runtime_checks(runtime: dict[str, Any] | None) -> list[Check]:
 
 
 def _process_alive(pid: Any) -> bool | None:
-    if not isinstance(pid, int) or os.name == "nt":
+    if not isinstance(pid, int):
         return None
+    if os.name == "nt":  # pragma: no cover - coverage is measured on Linux
+        return _windows_process_alive(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -130,6 +132,30 @@ def _process_alive(pid: Any) -> bool | None:
     except PermissionError:
         return True
     return True
+
+
+def _windows_process_alive(pid: int) -> bool:  # pragma: no cover - Windows only
+    """Ask Windows whether the process runs (os.kill(pid, 0) would terminate it there)."""
+    import ctypes
+    from ctypes import wintypes
+
+    process_query_limited_information, still_active, error_access_denied = 0x1000, 259, 5
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        # It exists but belongs to another user, or it does not exist.
+        return ctypes.get_last_error() == error_access_denied
+    try:
+        exit_code = wintypes.DWORD()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return True
+        return exit_code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def _count_traces(path: str) -> int:
