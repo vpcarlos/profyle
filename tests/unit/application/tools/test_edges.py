@@ -148,7 +148,8 @@ def test_doctor_process_states(monkeypatch, pid, kill_error, state):
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows process check")
 def test_doctor_process_states_on_windows():
-    finished = subprocess.run([sys.executable, "-c", "pass"])  # noqa: S603
+    finished = subprocess.Popen([sys.executable, "-c", "pass"])  # noqa: S603
+    finished.wait()
     for pid, state in [(os.getpid(), "running"), (finished.pid, "not running")]:
         repo = InMemoryTraceRepository()
         repo.store_runtime({"framework": "Flask", "mode": "profyle run", "pid": pid})
