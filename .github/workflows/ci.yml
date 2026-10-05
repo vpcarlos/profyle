@@ -21,8 +21,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install uv
@@ -48,8 +48,8 @@ jobs:
           - { os: macos-latest, python: "3.12", experimental: true }
           - { os: windows-latest, python: "3.12", experimental: true }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
           allow-prereleases: true
@@ -62,8 +62,8 @@ jobs:
     name: coverage (100% required)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - run: pip install uv
@@ -72,7 +72,7 @@ jobs:
         # Fails below 100% (fail_under in pyproject.toml). Subprocesses (`profyle run`,
         # the console worker, the example servers) are measured too.
         run: uv run --frozen pytest --cov --cov-report=term --cov-report=xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage
@@ -82,8 +82,8 @@ jobs:
     name: tests (lowest supported dependency versions)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.10"
       - run: pip install uv
@@ -96,8 +96,8 @@ jobs:
     name: build and install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install uv
@@ -120,7 +120,7 @@ jobs:
           test ! -e .mcp.json && test ! -e .claude && test ! -e .profyle
           # `profyle run` must load its bootstrap from the installed wheel
           /tmp/smoke/bin/profyle run /tmp/smoke/bin/python -c "import profyle.infrastructure.autoinstrument as a; assert a._installed"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -129,7 +129,7 @@ jobs:
     name: Claude Code plugin manifests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate manifests and skill front matter
         run: |
           python3 - <<'PY'
