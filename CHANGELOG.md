@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.4.0] - Unreleased
+## [0.4.0] - 2026-10-05
 
 ### Added
 - **`profyle run <command>`**: trace an app without code changes
@@ -126,4 +126,6 @@ All notable changes to this project are documented here. The format follows
 
 Last release before this changelog was introduced.
 
+[Unreleased]: https://github.com/vpcarlos/profyle/compare/0.4.0...HEAD
+[0.4.0]: https://github.com/vpcarlos/profyle/releases/tag/0.4.0
 [0.3.0]: https://pypi.org/project/profyle/0.3.0/
