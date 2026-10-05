@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 
 import pytest
@@ -89,9 +90,17 @@ def test_run_execs_the_command_with_the_bootstrap(project_db, monkeypatch, capsy
     monkeypatch.setattr(
         os, "execve", lambda path, args, env: executed.update(path=path, args=args, env=env)
     )
+    # Windows has no exec: the command runs as a child and its exit code is profyle's.
+    monkeypatch.setattr(
+        subprocess, "call", lambda args, env: executed.update(args=["python", *args[1:]], env=env)
+    )
 
     monkeypatch.setattr(sys, "argv", ["profyle", "run", "--", "python", "-c", "pass"])
-    cli.run()
+    if os.name == "nt":
+        with pytest.raises(SystemExit):
+            cli.run()
+    else:
+        cli.run()
     startup_message = capsys.readouterr().err
 
     assert executed["args"] == ["python", "-c", "pass"]

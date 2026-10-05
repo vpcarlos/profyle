@@ -91,6 +91,9 @@ All notable changes to this project are documented here. The format follows
     thread is traced, Profyle now stops event delivery and gives threads a moment to
     finish before it stops the tracer. A `__repr__` that blocks for longer (for example
     one that queries a database) can still hit it.
+- Windows: `profyle doctor` terminated the app it checked (`os.kill(pid, 0)` ends a
+  process on Windows); it now asks Windows whether the process runs. `profyle init`
+  writes its files with LF line endings on every platform. Windows is now tested in CI.
 - Profyle's console messages (such as "not traced") were swallowed while another request
   was being traced: VizTracer replaces `print()` while it traces.
 - `profyle run uvicorn --factory` reported the app as `str`; it is now

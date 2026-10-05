@@ -1,5 +1,7 @@
 import os
 import sqlite3
+import subprocess
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -11,6 +13,8 @@ from profyle.domain.trace import RecordedRequest
 from profyle.settings import settings
 from tests.unit.application.analysis.test_digest import make_trace
 from tests.unit.repository import InMemoryTraceRepository, store_trace
+
+POSIX_ONLY = pytest.mark.skipif(os.name == "nt", reason="os.kill(pid, 0) process check")
 
 
 def request(base_url="http://127.0.0.1:9", **kwargs):
@@ -122,8 +126,8 @@ def test_doctor_reports_the_running_app(monkeypatch):
     ("pid", "kill_error", "state"),
     [
         (None, None, "unknown state"),
-        (2**22 + 7, None, "not running"),
-        (1, PermissionError, "running"),
+        pytest.param(2**22 + 7, None, "not running", marks=POSIX_ONLY),
+        pytest.param(1, PermissionError, "running", marks=POSIX_ONLY),
     ],
 )
 def test_doctor_process_states(monkeypatch, pid, kill_error, state):
@@ -140,6 +144,16 @@ def test_doctor_process_states(monkeypatch, pid, kill_error, state):
 
     assert f"traced via `profyle run` (pid {pid}, {state}" in report
     assert "Tip:" not in report
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows process check")
+def test_doctor_process_states_on_windows():
+    finished = subprocess.Popen([sys.executable, "-c", "pass"])  # noqa: S603
+    finished.wait()
+    for pid, state in [(os.getpid(), "running"), (finished.pid, "not running")]:
+        repo = InMemoryTraceRepository()
+        repo.store_runtime({"framework": "Flask", "mode": "profyle run", "pid": pid})
+        assert f"(pid {pid}, {state}" in tools.doctor(repo)
 
 
 def test_doctor_warns_about_traces_in_the_old_location(tmp_path, monkeypatch):
