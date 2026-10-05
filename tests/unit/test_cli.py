@@ -13,6 +13,9 @@ def run_cli(monkeypatch, capsys, *args):
 
 
 def test_help(monkeypatch, capsys):
+    # Python 3.14+ colors argparse help when FORCE_COLOR is set (as in CI).
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.setenv("NO_COLOR", "1")
     assert "usage: profyle" in run_cli(monkeypatch, capsys)
 
 

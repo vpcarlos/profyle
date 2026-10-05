@@ -1,4 +1,5 @@
 import importlib.machinery
+import os
 import runpy
 import sys
 
@@ -22,3 +23,16 @@ def test_does_nothing_outside_profyle_run(monkeypatch):
     monkeypatch.setattr(importlib.machinery.PathFinder, "find_spec", lambda *a, **k: None)
 
     runpy.run_path(BOOTSTRAP)
+
+
+def test_runs_the_environments_own_sitecustomize_too(tmp_path, monkeypatch):
+    monkeypatch.delenv("PROFYLE_RUN", raising=False)
+    monkeypatch.delenv("PROFYLE_TEST_CHAINED", raising=False)
+    (tmp_path / "sitecustomize.py").write_text(
+        "import os\nos.environ['PROFYLE_TEST_CHAINED'] = '1'\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    runpy.run_path(BOOTSTRAP)
+
+    assert os.environ.get("PROFYLE_TEST_CHAINED") == "1"

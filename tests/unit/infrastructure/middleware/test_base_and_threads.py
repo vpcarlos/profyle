@@ -2,6 +2,7 @@ import asyncio
 import importlib.metadata
 import sys
 import threading
+import warnings
 
 import pytest
 from viztracer import VizTracer
@@ -66,8 +67,10 @@ def test_worker_threads_give_back_a_foreign_profiler():
             return sys.getprofile()
 
         # Known VizTracer limitation (see threadpool): it cannot trace a thread that had
-        # another Python profiler. Profyle must still give that profiler back.
-        with pytest.warns(RuntimeWarning, match="Unexpected function return"):
+        # another Python profiler (1.1+ warns, 1.0 raises). Profyle must still give that
+        # profiler back.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
             assert in_thread(with_foreign_profiler) is foreign
     finally:
         tracer.stop()
@@ -120,3 +123,19 @@ def test_async_to_sync_without_an_active_trace():
         return "ok"
 
     assert async_to_sync(answer)() == "ok"
+
+
+def test_a_thread_viztracer_refuses_to_trace_still_runs_the_call():
+    class RefusingTracer:
+        paused = False
+
+        def enable_thread_tracing(self):
+            raise RuntimeError("VizTracer: Unexpected type. Might be an event mismatch.")
+
+        def pause(self):
+            self.paused = True
+
+    tracer = RefusingTracer()
+
+    assert in_thread(lambda: threadpool._traced_sync(lambda: 42, tracer)()) == 42
+    assert tracer.paused

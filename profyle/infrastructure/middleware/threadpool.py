@@ -64,6 +64,15 @@ def _first_time_in_thread(tracer) -> bool:
     return True
 
 
+def _enable(tracer) -> None:
+    try:
+        tracer.enable_thread_tracing()
+    except RuntimeError:
+        # VizTracer < 1.1 raises here for a thread that had another profiler (later
+        # versions warn instead, see above): the call runs untraced, never fails.
+        pass
+
+
 def _restore(previous) -> None:
     # Give back a profiler the user had installed; drop hooks of earlier tracers.
     if previous is not None and not isinstance(previous, VizTracer):
@@ -79,7 +88,7 @@ def _traced_sync(func, tracer):
             # started the tracer: pausing it would stop the rest of the trace.
             return func(*args, **kwargs)
         if _first_time_in_thread(tracer):
-            tracer.enable_thread_tracing()
+            _enable(tracer)
         else:
             tracer.resume()
         try:
@@ -98,7 +107,7 @@ def _traced_async(func, tracer):
         if previous is tracer:
             return await func(*args, **kwargs)
         if _first_time_in_thread(tracer):
-            tracer.enable_thread_tracing()
+            _enable(tracer)
         else:
             tracer.resume()
         try:
