@@ -1,1 +1,1 @@
-from profyle.infrastructure.middleware.flask import ProfyleMiddleware # noqa
+from profyle.infrastructure.middleware.flask import ProfyleMiddleware  # noqa

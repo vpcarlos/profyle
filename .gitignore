@@ -131,8 +131,12 @@ dmypy.json
 # Profyle
 profile.db
 
-# poetry
-poetry.lock
-
 # Vscode
 .vscode
+.devcontainer/*
+Dockerfile
+docker*
+.DS_Store
+
+# Profyle trace data (also ignored by .profyle/.gitignore)
+.profyle/

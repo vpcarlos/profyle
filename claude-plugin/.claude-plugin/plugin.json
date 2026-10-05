@@ -1,0 +1,13 @@
+{
+  "name": "profyle",
+  "description": "Find and fix slow endpoints in Python web apps (FastAPI, Flask, Django, Tornado, any ASGI/WSGI framework) from real Profyle/VizTracer traces, and verify the fix by replaying the request.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Carlos Valdivia",
+    "email": "vpcarlos97@gmail.com"
+  },
+  "homepage": "https://github.com/vpcarlos/profyle",
+  "repository": "https://github.com/vpcarlos/profyle",
+  "license": "MIT",
+  "keywords": ["performance", "profiling", "viztracer", "fastapi", "flask", "django"]
+}

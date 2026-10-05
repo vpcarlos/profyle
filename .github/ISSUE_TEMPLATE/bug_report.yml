@@ -1,0 +1,60 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please do **not** report security
+        vulnerabilities here; see [SECURITY.md](https://github.com/vpcarlos/profyle/blob/main/SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: The smallest app or snippet that shows the problem.
+      render: python
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Framework
+      multiple: true
+      options:
+        - FastAPI / Starlette
+        - Flask
+        - Django (WSGI)
+        - Django (ASGI)
+        - Other / not framework specific
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Middleware / tracing
+        - Trace viewer (`profyle start`)
+        - CLI (`analyze`, `replay`, `doctor`, ...)
+        - MCP server / Claude Code plugin
+        - Other
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `profyle doctor`
+      description: Run it from your project directory. Remove anything you consider private.
+      render: text
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Profyle, Python, framework and OS
+      placeholder: profyle 0.4.0, Python 3.12.3, FastAPI 0.118, Ubuntu 24.04
+    validations:
+      required: true

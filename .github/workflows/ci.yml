@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHONUNBUFFERED: "1"
+  FORCE_COLOR: "1"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install uv
+      - run: uv sync --frozen
+      - name: Ruff
+        run: uv run ruff check --no-fix profyle tests examples
+      - name: Ruff format
+        run: uv run ruff format --check profyle tests examples
+
+  tests:
+    name: tests (py${{ matrix.python }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.10", "3.11", "3.12", "3.13"]
+        experimental: [false]
+        include:
+          # Not verified yet; reported without blocking merges.
+          - { os: ubuntu-latest, python: "3.14", experimental: true }
+          - { os: macos-latest, python: "3.12", experimental: true }
+          - { os: windows-latest, python: "3.12", experimental: true }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          allow-prereleases: true
+      - run: pip install uv
+      - run: uv sync --frozen --python ${{ matrix.python }}
+      - name: Pytest
+        run: uv run --frozen pytest -v
+
+  coverage:
+    name: coverage (100% required)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install uv
+      - run: uv sync --frozen --python 3.11
+      - name: Pytest with coverage
+        # Fails below 100% (fail_under in pyproject.toml). Subprocesses (`profyle run`,
+        # the console worker, the example servers) are measured too.
+        run: uv run --frozen pytest --cov --cov-report=term --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage.xml
+
+  lowest-dependencies:
+    name: tests (lowest supported dependency versions)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install uv
+      - name: Install the minimum versions allowed by pyproject.toml
+        run: uv sync --resolution lowest-direct --python 3.10
+      - name: Pytest
+        run: uv run --no-sync pytest -v
+
+  package:
+    name: build and install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install uv
+      - name: Build sdist and wheel
+        run: uv build
+      - name: Check metadata
+        run: uvx twine check --strict dist/*
+      - name: Install the wheel in a clean environment and smoke test it
+        run: |
+          uv venv /tmp/smoke
+          uv pip install --python /tmp/smoke/bin/python "$(ls dist/*.whl)[flask,django]"
+          mkdir -p /tmp/project && cd /tmp/project && touch pyproject.toml
+          /tmp/smoke/bin/python -c "import profyle.fastapi, profyle.flask, profyle.django, profyle.infrastructure.mcp_server"
+          /tmp/smoke/bin/profyle --help
+          /tmp/smoke/bin/profyle doctor
+          test -f .profyle/.gitignore
+          /tmp/smoke/bin/profyle init
+          test -f .mcp.json && test -f .claude/skills/fix-slow-endpoint/SKILL.md
+          /tmp/smoke/bin/profyle uninstall --yes
+          test ! -e .mcp.json && test ! -e .claude && test ! -e .profyle
+          # `profyle run` must load its bootstrap from the installed wheel
+          /tmp/smoke/bin/profyle run /tmp/smoke/bin/python -c "import profyle.infrastructure.autoinstrument as a; assert a._installed"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  claude-plugin:
+    name: Claude Code plugin manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate manifests and skill front matter
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, re, sys
+
+          errors = []
+          for path in [".claude-plugin/marketplace.json",
+                       "claude-plugin/.claude-plugin/plugin.json",
+                       "claude-plugin/.mcp.json"]:
+              try:
+                  json.loads(pathlib.Path(path).read_text())
+              except Exception as error:
+                  errors.append(f"{path}: {error}")
+
+          marketplace = json.loads(pathlib.Path(".claude-plugin/marketplace.json").read_text())
+          for plugin in marketplace["plugins"]:
+              if not pathlib.Path(plugin["source"], ".claude-plugin", "plugin.json").exists():
+                  errors.append(f"marketplace: {plugin['source']} has no plugin.json")
+
+          for skill in pathlib.Path("claude-plugin/skills").glob("*/SKILL.md"):
+              front = re.match(r"^---\n(.*?)\n---\n", skill.read_text(), re.S)
+              if not front:
+                  errors.append(f"{skill}: missing front matter")
+                  continue
+              for key in ("name:", "description:"):
+                  if key not in front.group(1):
+                      errors.append(f"{skill}: front matter lacks {key}")
+
+          print("\n".join(errors) or "Plugin manifests OK")
+          sys.exit(1 if errors else 0)
+          PY

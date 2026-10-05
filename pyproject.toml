@@ -1,69 +1,119 @@
-[tool.poetry]
+[project]
 name = "profyle"
-version = "0.3.0"
-description = "Profyle, a development tool for analysing and managing python traces"
-authors = ["Carlos Valdivia <vpcarlos97@gmail.com>"]
-maintainers = [
-    "Carlos Valdivia <vpcarlos97@gmail.com>"
-]
-repository = "https://github.com/vpcarlos/profyle"
-keywords = ["cprofile","devtool", "perffeto", "profyle", "viztracer","fastapi","flask"]
+version = "0.4.0"
+description = "Trace Python web requests (FastAPI, Flask, Django) with VizTracer, find bottlenecks and fix them with Claude Code."
+authors = [{ name = "Carlos Valdivia", email = "vpcarlos97@gmail.com" }]
+maintainers = [{ name = "Carlos Valdivia", email = "vpcarlos97@gmail.com" }]
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Django",
     "Framework :: FastAPI",
     "Framework :: Flask",
-    "License :: OSI Approved :: MIT License",
     "Intended Audience :: Developers",
-    "Intended Audience :: Information Technology",
-    "Intended Audience :: System Administrators",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
     "Programming Language :: Python",
-    "Topic :: Internet",
-    "Topic :: Software Development :: Debuggers",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Software Development :: Libraries",
-    "Topic :: Software Development :: Testing",
-    "Topic :: Software Development :: Libraries",
-    "Topic :: Software Development",
-    "Typing :: Typed",
-    "Environment :: Web Environment",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Debuggers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Testing",
+    "Topic :: System :: Monitoring",
 ]
-license = "MIT"
-readme = "README.md"
+keywords = [
+    "profiling", "tracing", "performance", "bottleneck", "viztracer", "perfetto",
+    "fastapi", "flask", "django", "mcp", "claude",
+]
+dependencies = [
+    "fastapi>=0.115.0",
+    "jinja2>=3.1.2",
+    # MCP server so Claude Code / Claude Desktop can query traces (`profyle mcp`)
+    "mcp>=2.0.0",
+    "pydantic>=2.0",
+    "tomli>=1.1.0; python_version < '3.11'",
+    "uvicorn[standard]>=0.39.0",
+    "viztracer>=1.0.0",
+]
 
-[tool.poetry.scripts]
-profyle = "profyle.main:app"
+[project.urls]
+Homepage = "https://github.com/vpcarlos/profyle"
+Repository = "https://github.com/vpcarlos/profyle"
+Issues = "https://github.com/vpcarlos/profyle/issues"
+Changelog = "https://github.com/vpcarlos/profyle/blob/main/CHANGELOG.md"
 
-[tool.poetry.dependencies]
-python = ">=3.9,<4.0"
-jinja2 = "^3.1.2"
-uvicorn = ">=0.20.0"
-typer = {extras = ["all"], version = "^0.7.0"}
-viztracer = "^0.16.0"
-fastapi = ">=0.70.0"
-pydantic-settings = "^2.0.3"
+[project.scripts]
+profyle = "profyle.main:run"
 
+[project.optional-dependencies]
+flask = [
+    "flask>=3.0.0",
+]
+django = [
+    "django>=4.2.7",
+]
+fastapi = [
+    "fastapi>=0.115.0",
+]
+tornado = [
+    "tornado>=6.1",
+]
+# Kept so `pip install "profyle[mcp]"` keeps working; the MCP server is now included.
+mcp = []
 
-[tool.poetry.group.dev.dependencies]
-autopep8 = "^2.0.1"
-pytest = "^7.2.1"
-httpx = "^0.23.3"
-flask = "^2.0.0"
-pytest-asyncio = "^0.21.1"
-ruff = "^0.1.5"
+[dependency-groups]
+dev = [
+    "pytest>=7.2.1",
+    "httpx>=0.23.3",
+    "flask>=3.0.0",
+    "django>=4.2.7",
+    "tornado>=6.1",
+    "gunicorn>=22.0; sys_platform != 'win32'",
+    "mcp>=2.0.0",
+    "pytest-cov>=6.0",
+    "coverage[toml]>=7.10",
+    "pytest-asyncio>=0.21.1",
+    "ruff>=0.1.5",
+]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "integration: starts real servers in subprocesses (deselect with -m 'not integration')",
+]
 
-[tool.poetry.group.flask.dependencies]
-flask = "^2.0.0"
+[tool.coverage.run]
+source = ["profyle"]
+branch = true
+# Measure code run by subprocesses too (profyle run, the console worker, servers):
+# follow subprocesses and execve, and save data when servers are stopped with SIGTERM.
+patch = ["subprocess", "execv"]
+sigterm = true
+parallel = true
 
-
-[tool.poetry.group.django.dependencies]
-django = "^4.2.7"
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 100
+# Code that cannot run where coverage is measured (Linux, Python 3.11) is marked inline
+# with "# pragma: no cover" and a reason.
+exclude_also = [
+    'if __name__ == "__main__":',
+]
 
 [tool.ruff]
+line-length = 100
+fix = true
+
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -73,18 +123,16 @@ select = [
     "B",  # flake8-bugbear
     "UP",
 ]
-
 ignore = [
     # Avoid trying to fix flake8-bugbear (`B`) violations.
     "B",
     "E731",
 ]
-
-fix = true
 unfixable = []
 
-line-length = 100
+[tool.hatch.build.targets.sdist]
+exclude = [".claude-plugin", "claude-plugin", "docs/img", ".github", ".profyle", "**/profile.db"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
